@@ -92,12 +92,46 @@ data CheckSums
       deriving (Read, Show, Eq)
 
 
+makeFileList :: FilePath -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
+makeFileList repoDir =
+    do releases <- findReleases repoDir
+       liftM (\l -> (concatMap fst l, concatMap snd l)) $ mapM (makeDistFileList repoDir) releases
+
+mergeLists :: [([a],[a])] -> ([a],[a])
+mergeLists l = (concatMap fst l, concatMap snd l)
+
+findReleases :: FilePath -> IO [String]
+findReleases repoDir =
+    do let distsDir = repoDir +/+ "dists"
+       e <- fileExist distsDir
+       if not e
+          then return []
+          else do 
+                  contents <- getDirectoryContents distsDir
+                  dirs <- filterM (isRealDir distsDir) $ filter (\d -> (d /= ".") && (d /= "..")) contents
+                  release <- filterM (\dir -> fileExist (distsDir +/+ dir +/+ "Release")) dirs
+                  return release
+    where
+      isRealDir base fp =
+          do isDir <- liftM isDirectory $ getFileStatus (base +/+ fp)
+             if isDir
+                then liftM not $ isSymLink (base +/+ fp)
+                else return False
+                        
+
+-- TODO: move to unix utils
+isSymLink path = getSymbolicLinkStatus path >>= return . isSymbolicLink
+
 -- TODO: check GPG signatures
 -- TODO: include all sums for control files
 -- TODO: don't assume Packages file exists, (possibly only .gz or .bz2 exists)
 -- TODO: include Release Release.gpg, Contents, etc in control file list
-makeFileList :: FilePath -> String -> IO [(CheckSums, Integer, FilePath)]
-makeFileList repoDir distName =
+-- returns:
+-- the left list is the file paths relative to repoDir for the dist files
+-- the right list is the file paths relative to repoDir for the pool files
+-- they are returned seperately in case the parent of the dist and pool directories are different.
+makeDistFileList :: FilePath -> String -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
+makeDistFileList repoDir distName =
     do let distDir = repoDir +/+ "dists" +/+ distName
            releaseFP = distDir +/+ "Release"
        release <- parseControlFromFile releaseFP
@@ -113,28 +147,30 @@ makeFileList repoDir distName =
                       packageFiles <- mapM (makePackageFileListIO distDir) packages
                       sourceFiles <- mapM (makeSourceFileListIO distDir) sources
                       cf <- contentsFiles distDir
-                      otherFiles <- mapM makeOther ((distDir +/+ "Release.gpg") : cf) >>= return . catMaybes
-                      mapM_ print packages
-                      mapM_ print sources
-                      mapM_ print otherFiles
+                      distFiles <- mapM (makeOther distDir) ("Release.gpg" : cf) >>= return . catMaybes
+                      -- mapM_ print packages
+                      -- mapM_ print sources
+                      -- mapM_ print otherFiles
                       -- mapM_ print (concat packageFiles)
---                      mapM_ print (concat sourceFiles)
+                      -- mapM_ print (concat sourceFiles)
+                      return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ distFiles ++ packages ++ sources, concat (packageFiles ++ sourceFiles))
          (Right _) -> error $ "Did not find exactly one paragraph in " ++ releaseFP
-       return []
     where
       makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
       makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), B.unpack fp)
-      makeOther :: FilePath -> IO (Maybe (CheckSums, Integer, FilePath))
-      makeOther fp =
-          do e <- fileExist fp
+      makeOther :: FilePath -> FilePath -> IO (Maybe (CheckSums, Integer, FilePath))
+      makeOther basePath fp =
+          do e <- fileExist (basePath +/+ fp)
              if not e
               then return Nothing
-              else do size <- getFileStatus fp >>= return . fromIntegral . fileSize
-                      md5 <- M.md5sum fp
+              else do size <- getFileStatus (basePath +/+ fp) >>= return . fromIntegral . fileSize
+                      md5 <- M.md5sum (basePath +/+ fp)
                       return $ Just (CheckSums { md5sum = Just md5, sha1 = Nothing, sha256 = Nothing }, size, fp)
       contentsFiles :: FilePath -> IO [FilePath]
       contentsFiles distDir =
           do files <- getDirectoryContents distDir
+--             print files
+--             print $ filter (isPrefixOf "Contents-" . baseName) files
              return $ filter (isPrefixOf "Contents-" . baseName) files
 
 
