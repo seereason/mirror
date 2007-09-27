@@ -68,7 +68,11 @@ mirrorRelease sourceDist sourcePool dest
            when (uriAuthority sourceDist /= Nothing) (error $ "file:/ should only have one slash.")
            putStrLn "Creating list of files in Release"
            (distFiles, poolFiles) <- makeFileList (uriPath sourceDist)
+           putStrLn "rsync'ing index files."
            let (root, files, dest'') = fudgePath (uriPath sourceDist) distFiles dest'
+           rsync root files dest''
+           putStrLn "rsync'ing pool files."
+           let (root, files, dest'') = fudgePath (uriPath sourcePool) poolFiles dest'
            rsync root files dest''
            updateSymLink dest' dest
            return ()
@@ -313,6 +317,6 @@ isSpecialInShell c = c `elem` " \"'\\$;[]()&?*"
 escapeShell = escapeWithBackslash isSpecialInShell
 
 test = 
-    let local  = fromJust (parseURI "file:/tmp/ubuntu")
+    let local  = fromJust (parseURI "file:/var/www/ubuntu")
         remote = fromJust (parseURI "rsync://root@noir/tmp/test")
     in mirrorRelease local local remote
