@@ -2,6 +2,7 @@
 module Main where
 
 import Control.Concurrent
+import Control.Arrow
 import Control.Monad
 import Data.Maybe
 import Data.List
@@ -61,17 +62,63 @@ mirrorRelease :: URI -- ^ base URI of release (for dist files)
               -> URI -- ^ base URI of release source (for pool files)
               -> URI -- ^ base URI of release dest
               -> IO ()
-mirrorRelease sourceDist sourcePool dest =
-    do createDestDir dest
-       return ()
+mirrorRelease sourceDist sourcePool dest
+    | (uriScheme sourceDist) == "file:" && (uriScheme sourcePool) == "file:" && (uriScheme dest == "rsync:") =
+        do dest' <- createDestDir dest
+           when (uriAuthority sourceDist /= Nothing) (error $ "file:/ should only have one slash.")
+           putStrLn "Creating list of files in Release"
+           (distFiles, poolFiles) <- makeFileList (uriPath sourceDist)
+           let (root, files, dest'') = fudgePath (uriPath sourceDist) distFiles dest'
+           rsync root files dest''
+           updateSymLink dest' dest
+           return ()
+    | otherwise = error $ "currently the source dist and pool must be on the local file system, and files must be transfered to the remote system via rsync, sorry :("
 
+fudgePath :: FilePath -> [(CheckSums, Integer, FilePath)] -> URI -> (FilePath, [FilePath], URI)
+fudgePath fp [] _ = error $ "no files to transfer, can't fudge path"
+fudgePath fp files uri =
+    let files' = map (\(_,_,fp) -> fp) files
+        prefix = takeWhile (/= '/') (head files')
+        prefixSlash = prefix ++ "/"
+        plength = length prefixSlash
+        invalid = filter (not . (prefixSlash `isPrefixOf`)) files'
+    in
+      if null invalid 
+      then ((fp +/+ prefix), map (drop plength) files', uri { uriPath = escapeURIString isUnescapedInURI $ (uriPath uri) +/+ prefix })
+      else error ("These files do not have the correct prefix, " ++ prefix ++ "\n" ++ unlines invalid)
+          
+        
+
+
+rsync :: FilePath -> [FilePath] -> URI -> IO ()
+rsync srcDir files remote =
+    let auth = maybe (error $ show remote ++ " is missing authority information.") id (uriAuthority remote)
+        remote' = uriUserInfo auth ++ uriRegName auth ++ ":" ++ uriPath remote
+    in
+      do (inh, outh, errh, ph) <- runInteractiveProcess "rsync" ["-a","-v","--files-from","-", srcDir, remote'] Nothing Nothing -- add delete option
+         forkIO $ hGetContents outh >>= hPutStr stdout >> hFlush stdout
+         forkIO $ hGetContents errh >>= hPutStr stderr >> hFlush stderr
+         forkIO $ hPutStr inh (unlines files)
+         ec <- waitForProcess ph
+         when (ec /= ExitSuccess) (error $ "rsync failed.")
+
+updateSymLink :: URI -> URI -> IO ()
+updateSymLink dest' dest
+    | (uriAuthority dest) == (uriAuthority dest') =
+        let basename  = baseName (escapeShell (unEscapeString (uriPath dest)))
+            basename' = baseName (escapeShell (unEscapeString (uriPath dest')))
+            dirname   = dirName (escapeShell (unEscapeString (uriPath dest)))
+            parent    = dest { uriPath = dirname }
+        in
+          do ec <- remoteCommand parent $ "ln -snf " ++ basename' ++ " " ++ basename
+             when (ec /= ExitSuccess) (error "Remote symlink failed.")
+    | otherwise = error $ "Can't symlink across authorities: " ++ show (dest, dest')
 
 createDestDir :: URI -> IO URI
 createDestDir dest =
     do let basename = baseName (escapeShell (unEscapeString (uriPath dest)))
            dirname  = dirName (escapeShell (unEscapeString (uriPath dest)))
            parent = dest { uriPath = dirname }
-       print (dirname, basename, parent)
        dateStamp <- getCurrentTime >>= return . formatTime defaultTimeLocale "%Y%m%d_%H:%M:%S"
        ec <- remoteCommand parent $ unlines [ "if [ -h " ++ escapeShell basename  ++ " ] ; then"
                                             , "	echo Making new copy of target directory $(readlink " ++ escapeShell  basename ++ ") -\\> " ++ basename ++ "-" ++ dateStamp ++ " ;" 
@@ -82,7 +129,7 @@ createDestDir dest =
                                             , "fi"
                                             ]
        when (ec /= ExitSuccess) (error $ "Failed to create directory on destination server: " ++ show dest)
-       return $ dest { uriPath = escapeURIString isUnescapedInURI $ (uriPath dest) ++ "-" ++ dateStamp }
+       return $ (dest { uriPath = escapeURIString isUnescapedInURI $ (uriPath dest) ++ "-" ++ dateStamp })
 
 data CheckSums 
     = CheckSums { md5sum :: Maybe String
@@ -91,7 +138,8 @@ data CheckSums
                 }
       deriving (Read, Show, Eq)
 
-
+-- | left list is list of files from dists directory
+--   right list is list of files from pool directory
 makeFileList :: FilePath -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
 makeFileList repoDir =
     do releases <- findReleases repoDir
@@ -105,7 +153,7 @@ findReleases repoDir =
     do let distsDir = repoDir +/+ "dists"
        e <- fileExist distsDir
        if not e
-          then return []
+          then error (distsDir ++ " does not exist.") -- return []
           else do 
                   contents <- getDirectoryContents distsDir
                   dirs <- filterM (isRealDir distsDir) $ filter (\d -> (d /= ".") && (d /= "..")) contents
@@ -214,17 +262,15 @@ makeSourceFileList (Control paragraphs) =
 remoteCommand :: URI -> String -> IO ExitCode
 remoteCommand uri cmd =
     case (uriScheme uri, uriAuthority uri) of
-      ("ssh:",Just auth) ->
+      (scheme,Just auth) | scheme == "ssh:" || scheme == "rsync:" ->
           do let port = case uriPort auth of "" -> "22"; n -> show n
              let dest = uriUserInfo auth ++ uriRegName auth
                  path = escapeShell (unEscapeString (uriPath uri))
-             (inh, outh, errh, ph) <- runInteractiveCommand ("ssh -o 'PreferredAuthentications hostbased,publickey' -T -p " ++ port ++ " " ++ dest)
-             forkIO $ hGetContents outh >>= hPutStr stdout
-             forkIO $ hGetContents errh >>= hPutStr stderr
+             (inh, outh, errh, ph) <- runInteractiveProcess "ssh" ["-o","PreferredAuthentications hostbased,publickey","-T","-p",port, dest] Nothing Nothing
+             forkIO $ hGetContents outh >>= hPutStr stdout >> hFlush stdout
+             forkIO $ hGetContents errh >>= hPutStr stderr >> hFlush stderr
              forkIO $ hPutStr inh ("cd " ++ path ++ " && " ++ cmd)
              ec <- waitForProcess ph
-             hFlush stdout
-             hFlush stderr
              return ec
       _ -> error $ "Invalid argument to remoteCommand (only ssh is supported): " ++ show uri
 
@@ -265,3 +311,8 @@ isSpecialInShell c = c `elem` " \"'\\$;[]()&?*"
 
 -- does not escape /
 escapeShell = escapeWithBackslash isSpecialInShell
+
+test = 
+    let local  = fromJust (parseURI "file:/tmp/ubuntu")
+        remote = fromJust (parseURI "rsync://root@noir/tmp/test")
+    in mirrorRelease local local remote
