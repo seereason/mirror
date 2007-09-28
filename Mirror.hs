@@ -64,10 +64,10 @@ mirrorRelease :: URI -- ^ base URI of release (for dist files)
               -> IO ()
 mirrorRelease sourceDist sourcePool dest
     | (uriScheme sourceDist) == "file:" && (uriScheme sourcePool) == "file:" && (uriScheme dest == "rsync:") =
-        do dest' <- createDestDir dest
-           when (uriAuthority sourceDist /= Nothing) (error $ "file:/ should only have one slash.")
+        do when (uriAuthority sourceDist /= Nothing) (error $ "file:/ should only have one slash.")
            putStrLn "Creating list of files in Release"
            (distFiles, poolFiles) <- makeFileList (uriPath sourceDist)
+           dest' <- createDestDir dest
            putStrLn "rsync'ing index files."
            let (root, files, dest'') = fudgePath (uriPath sourceDist) distFiles dest'
            rsync root files dest''
@@ -317,6 +317,8 @@ isSpecialInShell c = c `elem` " \"'\\$;[]()&?*"
 escapeShell = escapeWithBackslash isSpecialInShell
 
 test = 
-    let local  = fromJust (parseURI "file:/var/www/ubuntu")
-        remote = fromJust (parseURI "rsync://root@noir/tmp/test")
-    in mirrorRelease local local remote
+    let localDist  = fromJust (parseURI "file:/var/www/ubuntu.apt2")
+        localPool = fromJust (parseURI "file:/var/www/ubuntu")
+        -- remote = fromJust (parseURI "rsync://root@noir/disks/hdb1/test")
+        remote    = fromJust (parseURI "rsync://apt@apt.freespire.org/freespire/live/public/freespire.org/apt2/htdocs/ubuntu-archives/current")
+    in mirrorRelease localDist localPool remote
