@@ -1,0 +1,18 @@
+Name:           debian-mirror
+Version:        1.0
+License:        BSD3
+License-File:	debian/copyright
+Author:		Jeremy Shaw
+Homepage:       http://src.seereason.org/debian-mirror
+Build-Depends:  base, Unixutils, debian >= 2.0, unix, network, time >= 1.1
+Synopsis:       A library and application for mirroring Debian compatible repositories
+ghc-options:	-fglasgow-exts -O2 -fasm
+Exposed-modules:
+	Debian.Mirror
+
+Executable: debian-mirror
+Main-is: utils/DebianMirror.hs
+ghc-options: -O2 -fasm
+
+-- For more complex build options see:
+-- http://www.haskell.org/ghc/docs/latest/html/Cabal/

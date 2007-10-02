@@ -1,5 +1,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
-module Main where
+module Debian.Mirror
+    (pushLocalRelease
+    )
+    where
 
 import Control.Concurrent
 import Control.Arrow
@@ -42,6 +45,13 @@ When we mirror contents, we need to:
  + update the Release and Release.gpg files
    - but updating would involving reading in existing stuff, which is lame
 -}
+
+pushLocalRelease :: FilePath
+                 -> FilePath
+                 -> URI
+                 -> IO ()
+pushLocalRelease sourceDistFP sourcePoolFP destURI =
+    mirrorRelease (fromJust $ parseURI ("file:" ++ sourceDistFP)) (fromJust $ parseURI ("file:" ++ sourcePoolFP)) destURI
 
 -- |mirror a specific Packages / Sources file to a remote server
 mirrorContentsTo :: Control -- ^ control file used as source of packages/versions
@@ -99,7 +109,7 @@ rsync srcDir files remote =
     let auth = maybe (error $ show remote ++ " is missing authority information.") id (uriAuthority remote)
         remote' = uriUserInfo auth ++ uriRegName auth ++ ":" ++ uriPath remote
     in
-      do (inh, outh, errh, ph) <- runInteractiveProcess "rsync" ["-a","-v","--files-from","-", srcDir, remote'] Nothing Nothing -- add delete option
+      do (inh, outh, errh, ph) <- runInteractiveProcess "rsync" ["-a","--progress","--delete","--files-from","-", srcDir, remote'] Nothing Nothing -- add delete option
          forkIO $ hGetContents outh >>= hPutStr stdout >> hFlush stdout
          forkIO $ hGetContents errh >>= hPutStr stderr >> hFlush stderr
          forkIO $ hPutStr inh (unlines files)
@@ -316,9 +326,3 @@ isSpecialInShell c = c `elem` " \"'\\$;[]()&?*"
 -- does not escape /
 escapeShell = escapeWithBackslash isSpecialInShell
 
-test = 
-    let localDist  = fromJust (parseURI "file:/var/www/ubuntu.apt2")
-        localPool = fromJust (parseURI "file:/var/www/ubuntu")
-        -- remote = fromJust (parseURI "rsync://root@noir/disks/hdb1/test")
-        remote    = fromJust (parseURI "rsync://apt@apt.freespire.org/freespire/live/public/freespire.org/apt2/htdocs/ubuntu-archives/current")
-    in mirrorRelease localDist localPool remote
