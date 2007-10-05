@@ -1,0 +1,6 @@
+haskell-debian-mirror (1.0.0) unstable; urgency=low
+
+  * Initial Debian package.
+
+ -- Jeremy Shaw <jeremy@n-heptane.com>  Thu,  4 Oct 2007 14:11:45 -0700
+
