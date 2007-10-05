@@ -1,3 +1,4 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 module Main where
 
 import Control.Exception
@@ -5,9 +6,12 @@ import Control.Monad
 import Data.Maybe
 import Data.List
 import Network.URI
-import System.Environment
+import System.Environment hiding (getEnv)
+import System.Posix.Env (getEnv)
 import System.Exit
 import System.IO
+import Extra.Terminal
+
 import Text.PrettyPrint.HughesPJ
 
 import Debian.Mirror
@@ -31,7 +35,8 @@ configs =
 
 exitWithHelp =
     do progName <- getProgName
-       columns <- return . either (const 80) read =<< try (getEnv "COLUMNS")
+       columns <- return . fromMaybe 80 =<< getWidth
+       print columns
        putStrLn $ renderStyle (Style PageMode columns 1.0) $ 
                 text "Usage:" <+> text progName <+> text "<config>" $+$ 
                 text [] $+$ 
@@ -47,11 +52,7 @@ main =
        when (isNothing mConfig) $ do hPutStrLn stderr ("Could not find config named " ++ configName)
                                      exitWithHelp
        let config = fromJust mConfig
-       print configName
-       print $ ppConfig config
-
-
-
+       pushLocalRelease (distDir config) (poolDir config) (destURI config)
 
 ppConfig :: Config -> Doc
 ppConfig (Config name distDir poolDir destURI) =

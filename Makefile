@@ -8,8 +8,8 @@ doc: haddock
   # Add additional rules for documentation generation here
 
 configure: .setup-config
-.setup-config:
-	chmod ugo+x ./Setup.hs; ./Setup.hs configure
+.setup-config: mirror.cabal
+	runhaskell Setup.hs configure
 
 build: configure
 	runhaskell Setup.hs build
@@ -18,7 +18,7 @@ install: build
 	runhaskell Setup.hs install
 
 test:
-	runhaskell -itests tests/Main.hs
+	runhaskell tests/Main.hs
 
 dist:
 	runhaskell Setup.hs sdist

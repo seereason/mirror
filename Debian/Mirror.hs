@@ -53,8 +53,8 @@ pushLocalRelease :: FilePath
 pushLocalRelease sourceDistFP sourcePoolFP destURI =
     mirrorRelease (fromJust $ parseURI ("file:" ++ sourceDistFP)) (fromJust $ parseURI ("file:" ++ sourcePoolFP)) destURI
 
--- |mirror a specific Packages / Sources file to a remote server
-mirrorContentsTo :: Control -- ^ control file used as source of packages/versions
+-- |mirror a specific Packages \/ Sources file to a remote server
+mirrorContentsTo :: Control -- ^ control file used as source of packages\/versions
                  -> URI -- ^ where to look for files
                  -> URI -- ^ where to upload the files 
                  -> IO () -- ^ result
@@ -62,7 +62,7 @@ mirrorContentsTo control source destination = undefined
 
 -- |we can mirror releases (also known as dists)
 -- independantly. Because there is nothing above a release that
--- records an sums/signatures the difficulty is that the pool is
+-- records an sums\/signatures the difficulty is that the pool is
 -- shared between releases, so we need a tool that picks out only the
 -- files needed by a release. We allow the dist files and pool files
 -- to be located at different base URIs. This is so you can make a
@@ -236,7 +236,7 @@ makeDistFileList repoDir distName =
              return $ filter (isPrefixOf "Contents-" . baseName) files
 
 
--- |TODO: check sums / filesizes
+-- |TODO: check sums \/ filesizes
 makePackageFileListIO :: FilePath -> (CheckSums, Integer, FilePath) -> IO [(CheckSums, Integer, FilePath)]
 makePackageFileListIO distDir (checkSums, size, fp) =
      (parseControlFromFile (distDir +/+ fp)) >>= either (error . show) (return . makePackageFileList)
@@ -255,7 +255,7 @@ makePackageFileList (Control paragraphs) =
           in (CheckSums { md5sum = md5sum, sha1 = sha1, sha256 = sha256 }, size, fp)
                   
 
--- |TODO: check sums / filesizes
+-- |TODO: check sums \/ filesizes
 makeSourceFileListIO :: FilePath -> (CheckSums, Integer, FilePath) -> IO [(CheckSums, Integer, FilePath)]
 makeSourceFileListIO distDir (checkSums, size, fp) =
      (parseControlFromFile (distDir +/+ fp)) >>= either (error . show) (return . makeSourceFileList)
@@ -323,6 +323,6 @@ escapeWithBackslash p str = concatMap escapeChar str
 -- what about '!'
 isSpecialInShell c = c `elem` " \"'\\$;[]()&?*"
 
--- does not escape /
+-- does not escape \/
 escapeShell = escapeWithBackslash isSpecialInShell
 
