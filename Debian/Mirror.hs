@@ -200,22 +200,28 @@ makeDistFileList repoDir distName =
        case release of
          (Left e) -> error (show e)
          (Right (Control [p])) -> 
-             case fieldValue "MD5Sum" p of
-               Nothing -> error $ "Did not find MD5Sum field in " ++ releaseFP
-               (Just md5sums) ->
+             let md5sums =
+                     case fieldValue "MD5Sum" p of
+                       (Just md5) -> md5
+                       Nothing ->
+                           case fieldValue "Md5Sum" p of
+                             (Just md5) -> md5
+                             Nothing -> error $ "Did not find MD5Sum field in " ++ releaseFP
+             in
                    do let controlFiles = map (makeTuple . B.words) $ filter (not . B.null) (B.lines md5sums)
                           packages = filter (\(_,_,fp) -> ("Packages" `isSuffixOf` fp)) controlFiles
                           sources = filter (\(_,_,fp) -> ("Sources" `isSuffixOf` fp)) controlFiles
+                      -- this does not get the .gz and .bz2 files ?
                       packageFiles <- mapM (makePackageFileListIO distDir) packages
                       sourceFiles <- mapM (makeSourceFileListIO distDir) sources
                       cf <- contentsFiles distDir
-                      distFiles <- mapM (makeOther distDir) ("Release.gpg" : cf) >>= return . catMaybes
+                      distFiles <- mapM (makeOther distDir) ("Release" : "Release.gpg" : cf) >>= return . catMaybes
                       -- mapM_ print packages
                       -- mapM_ print sources
                       -- mapM_ print otherFiles
                       -- mapM_ print (concat packageFiles)
                       -- mapM_ print (concat sourceFiles)
-                      return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ distFiles ++ packages ++ sources, concat (packageFiles ++ sourceFiles))
+                      return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ distFiles ++ controlFiles, concat (packageFiles ++ sourceFiles))
          (Right _) -> error $ "Did not find exactly one paragraph in " ++ releaseFP
     where
       makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
@@ -249,7 +255,9 @@ makePackageFileList (Control paragraphs) =
       makeParagraphTuple p =
           let fp     = maybe (error $ "Paragraph missing Filename field:\n" ++ show p) B.unpack (fieldValue "Filename" p)
               size   = maybe (error $ "Paragraph missing Size field") (read . B.unpack) (fieldValue "Size" p)
-              md5sum = fmap B.unpack $ fieldValue "MD5Sum" p
+              md5sum = fmap B.unpack $ case fieldValue "MD5Sum" p of 
+                                         m@(Just _) -> m
+                                         Nothing -> fieldValue "Md5Sum" p
               sha1   = fmap B.unpack $ fieldValue "SHA1" p
               sha256 = fmap B.unpack $ fieldValue "SHA256" p
           in (CheckSums { md5sum = md5sum, sha1 = sha1, sha256 = sha256 }, size, fp)
