@@ -36,7 +36,6 @@ configs =
 exitWithHelp =
     do progName <- getProgName
        columns <- return . fromMaybe 80 =<< getWidth
-       print columns
        putStrLn $ renderStyle (Style PageMode columns 1.0) $ 
                 text "Usage:" <+> text progName <+> text "<config>" $+$ 
                 text [] $+$ 
