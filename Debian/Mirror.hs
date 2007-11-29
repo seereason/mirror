@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 module Debian.Mirror
     (pushLocalRelease
+    , remoteCommand
     )
     where
 
@@ -46,12 +47,13 @@ When we mirror contents, we need to:
    - but updating would involving reading in existing stuff, which is lame
 -}
 
-pushLocalRelease :: FilePath
+pushLocalRelease :: Bool
+                 -> FilePath
                  -> FilePath
                  -> URI
                  -> IO ()
-pushLocalRelease sourceDistFP sourcePoolFP destURI =
-    mirrorRelease (fromJust $ parseURI ("file:" ++ sourceDistFP)) (fromJust $ parseURI ("file:" ++ sourcePoolFP)) destURI
+pushLocalRelease updateSymLink sourceDistFP sourcePoolFP destURI =
+    mirrorRelease updateSymLink (fromJust $ parseURI ("file:" ++ sourceDistFP)) (fromJust $ parseURI ("file:" ++ sourcePoolFP)) destURI
 
 -- |mirror a specific Packages \/ Sources file to a remote server
 mirrorContentsTo :: Control -- ^ control file used as source of packages\/versions
@@ -68,15 +70,24 @@ mirrorContentsTo control source destination = undefined
 -- to be located at different base URIs. This is so you can make a
 -- stripped down release on your local system, and mirror the files
 -- from a different location.
-mirrorRelease :: URI -- ^ base URI of release (for dist files)
+--
+--
+-- TODO: should have option to ignore missing indexes in Release so
+-- that we do not have to hack the Release thus invalidating
+-- Release.gpg
+--
+-- TODO: use bzlib\/zlib bindings to read compressed Packages index files
+mirrorRelease :: Bool
+              -> URI -- ^ base URI of release (for dist files)
               -> URI -- ^ base URI of release source (for pool files)
               -> URI -- ^ base URI of release dest
               -> IO ()
-mirrorRelease sourceDist sourcePool dest
+mirrorRelease updateSymLink' sourceDist sourcePool dest
     | (uriScheme sourceDist) == "file:" && (uriScheme sourcePool) == "file:" && (uriScheme dest == "rsync:") =
         do when (uriAuthority sourceDist /= Nothing) (error $ "file:/ should only have one slash.")
            putStrLn "Creating list of files in Release"
            (distFiles, poolFiles) <- makeFileList (uriPath sourceDist)
+           putStrLn "Creating destination directory on remote machine"
            dest' <- createDestDir dest
            putStrLn "rsync'ing index files."
            let (root, files, dest'') = fudgePath (uriPath sourceDist) distFiles dest'
@@ -84,7 +95,7 @@ mirrorRelease sourceDist sourcePool dest
            putStrLn "rsync'ing pool files."
            let (root, files, dest'') = fudgePath (uriPath sourcePool) poolFiles dest'
            rsync root files dest''
-           updateSymLink dest' dest
+           when (updateSymLink') (updateSymLink dest' dest)
            return ()
     | otherwise = error $ "currently the source dist and pool must be on the local file system, and files must be transfered to the remote system via rsync, sorry :("
 
@@ -109,7 +120,7 @@ rsync srcDir files remote =
     let auth = maybe (error $ show remote ++ " is missing authority information.") id (uriAuthority remote)
         remote' = uriUserInfo auth ++ uriRegName auth ++ ":" ++ uriPath remote
     in
-      do (inh, outh, errh, ph) <- runInteractiveProcess "rsync" ["-a","--progress","--delete","--files-from","-", srcDir, remote'] Nothing Nothing -- add delete option
+      do (inh, outh, errh, ph) <- runInteractiveProcess "rsync" ["-a","--progress",{- "--delete", -} "--files-from","-", srcDir, remote'] Nothing Nothing -- add delete option
          forkIO $ hGetContents outh >>= hPutStr stdout >> hFlush stdout
          forkIO $ hGetContents errh >>= hPutStr stderr >> hFlush stderr
          forkIO $ hPutStr inh (unlines files)
@@ -288,7 +299,10 @@ remoteCommand uri cmd =
           do let port = case uriPort auth of "" -> "22"; n -> show n
              let dest = uriUserInfo auth ++ uriRegName auth
                  path = escapeShell (unEscapeString (uriPath uri))
-             (inh, outh, errh, ph) <- runInteractiveProcess "ssh" ["-o","PreferredAuthentications hostbased,publickey","-T","-p",port, dest] Nothing Nothing
+             (inh, outh, errh, ph) <- runInteractiveProcess "ssh" ["-o","PreferredAuthentications=hostbased,publickey","-T","-p",port, dest] Nothing Nothing
+             hSetBuffering inh NoBuffering
+             hSetBuffering outh NoBuffering
+             hSetBuffering errh NoBuffering
              forkIO $ hGetContents outh >>= hPutStr stdout >> hFlush stdout
              forkIO $ hGetContents errh >>= hPutStr stderr >> hFlush stderr
              forkIO $ hPutStr inh ("cd " ++ path ++ " && " ++ cmd)

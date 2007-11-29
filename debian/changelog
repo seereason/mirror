@@ -1,3 +1,11 @@
+haskell-debian-mirror (1.0.2) unstable; urgency=low
+
+  * Use -threaded or the program will hang
+  * change the name of the preconfigured defaults
+  * Add flag to mirrorRelease making update of symlink optional
+
+ -- Jeremy Shaw <jeremy@n-heptane.com>  Thu, 29 Nov 2007 10:30:49 -0800
+
 haskell-debian-mirror (1.0.1) unstable; urgency=low
 
   * Handle Md5Sum as alternate to MD5Sum

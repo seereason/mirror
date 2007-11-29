@@ -12,7 +12,7 @@ Exposed-modules:
 
 Executable: debian-mirror
 Main-is: utils/DebianMirror.hs
-ghc-options: -O2 -fasm
+ghc-options: -O2 -fasm -threaded
 
 -- For more complex build options see:
 -- http://www.haskell.org/ghc/docs/latest/html/Cabal/

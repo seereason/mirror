@@ -23,11 +23,11 @@ data Config = Config { name :: String
                      }
 
 configs =
-    [ Config "skipjack-feisty" 
+    [ Config "freespire-addons" 
              "/var/www/CNRUbuntu" 
              "/var/www/CNRUbuntu" 
              (fromJust $ parseURI "rsync://apt@apt.freespire.org/freespire/live/public/freespire.org/apt2/htdocs/CNRUbuntu" )
-    , Config "feisty-extra" 
+    , Config "ubuntu-extra" 
              "/var/www/CNRUbuntuExtra" 
              "/var/www/CNRUbuntuExtra" 
              (fromJust $ parseURI "rsync://apt@apt.freespire.org/freespire/live/public/freespire.org/apt2/htdocs/CNRUbuntuExtra" )
@@ -51,7 +51,7 @@ main =
        when (isNothing mConfig) $ do hPutStrLn stderr ("Could not find config named " ++ configName)
                                      exitWithHelp
        let config = fromJust mConfig
-       pushLocalRelease (distDir config) (poolDir config) (destURI config)
+       pushLocalRelease True (distDir config) (poolDir config) (destURI config)
 
 ppConfig :: Config -> Doc
 ppConfig (Config name distDir poolDir destURI) =
