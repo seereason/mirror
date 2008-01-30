@@ -1,3 +1,11 @@
+haskell-debian-mirror (1.1.0) unstable; urgency=low
+
+  * Added md5sumField to look up various capitalizations of md5sum.
+  * export more functions
+  * allow functions to take predicate filters (to filter out architectures, etc)
+
+ -- Jeremy Shaw <jeremy@n-heptane.com>  Wed, 30 Jan 2008 11:24:15 -0800
+
 haskell-debian-mirror (1.0.2) unstable; urgency=low
 
   * Use -threaded or the program will hang
