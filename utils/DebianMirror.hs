@@ -51,7 +51,7 @@ main =
        when (isNothing mConfig) $ do hPutStrLn stderr ("Could not find config named " ++ configName)
                                      exitWithHelp
        let config = fromJust mConfig
-       pushLocalRelease True (distDir config) (poolDir config) (destURI config)
+       pushLocalRelease True (const True) (distDir config) (poolDir config) (destURI config)
 
 ppConfig :: Config -> Doc
 ppConfig (Config name distDir poolDir destURI) =

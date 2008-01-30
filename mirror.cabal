@@ -1,14 +1,14 @@
 Name:           debian-mirror
 Version:        1.0
 License:        BSD3
-License-File:	debian/copyright
+-- License-File:	debian/copyright
 Author:		Jeremy Shaw
 Homepage:       http://src.seereason.org/debian-mirror
-Build-Depends:  base, Unixutils, debian >= 2.0, unix, network, time >= 1.1, Extra >= 1.2
+Build-Depends:  base, Unixutils, debian >= 2.0, unix, network, time >= 1.1, Extra >= 1.2, regex-posix
 Synopsis:       A library and application for mirroring Debian compatible repositories
 ghc-options:	-fglasgow-exts -O2 -fasm
 Exposed-modules:
-	Debian.Mirror
+	Debian.Mirror, Debian.Mirror.Dist, Debian.Mirror.DistMain
 
 Executable: debian-mirror
 Main-is: utils/DebianMirror.hs

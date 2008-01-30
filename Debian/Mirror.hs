@@ -2,6 +2,9 @@
 module Debian.Mirror
     (pushLocalRelease
     , remoteCommand
+    , makeDistFileList
+    , archFilter
+    , md5sumField
     )
     where
 
@@ -22,6 +25,7 @@ import System.Process
 import System.Posix.Files
 import System.Exit
 import System.Locale
+import Text.Regex.Posix
 
 type ByteString = B.ByteString
 
@@ -47,13 +51,20 @@ When we mirror contents, we need to:
    - but updating would involving reading in existing stuff, which is lame
 -}
 
+archFilter :: [String] -> (FilePath -> Bool)
+archFilter arches =
+    (=~ (".*/" ++ (concat (intersperse "|" (map (\arch -> "binary-" ++ arch) arches))) ++ "|source/Sources.*"))
+
+-- ".*/binary-i386/(Packages|Release)|source/Sources.*"
+
 pushLocalRelease :: Bool
+                 -> (FilePath -> Bool)
                  -> FilePath
                  -> FilePath
                  -> URI
                  -> IO ()
-pushLocalRelease updateSymLink sourceDistFP sourcePoolFP destURI =
-    mirrorRelease updateSymLink (fromJust $ parseURI ("file:" ++ sourceDistFP)) (fromJust $ parseURI ("file:" ++ sourcePoolFP)) destURI
+pushLocalRelease updateSymLink filterp sourceDistFP sourcePoolFP destURI =
+    mirrorRelease updateSymLink filterp (fromJust $ parseURI ("file:" ++ sourceDistFP)) (fromJust $ parseURI ("file:" ++ sourcePoolFP)) destURI
 
 -- |mirror a specific Packages \/ Sources file to a remote server
 mirrorContentsTo :: Control -- ^ control file used as source of packages\/versions
@@ -78,15 +89,16 @@ mirrorContentsTo control source destination = undefined
 --
 -- TODO: use bzlib\/zlib bindings to read compressed Packages index files
 mirrorRelease :: Bool
+              -> (FilePath -> Bool)
               -> URI -- ^ base URI of release (for dist files)
               -> URI -- ^ base URI of release source (for pool files)
               -> URI -- ^ base URI of release dest
               -> IO ()
-mirrorRelease updateSymLink' sourceDist sourcePool dest
+mirrorRelease updateSymLink' filterp sourceDist sourcePool dest
     | (uriScheme sourceDist) == "file:" && (uriScheme sourcePool) == "file:" && (uriScheme dest == "rsync:") =
         do when (uriAuthority sourceDist /= Nothing) (error $ "file:/ should only have one slash.")
            putStrLn "Creating list of files in Release"
-           (distFiles, poolFiles) <- makeFileList (uriPath sourceDist)
+           (distFiles, poolFiles) <- makeFileList filterp (uriPath sourceDist)
            putStrLn "Creating destination directory on remote machine"
            dest' <- createDestDir dest
            putStrLn "rsync'ing index files."
@@ -165,10 +177,11 @@ data CheckSums
 
 -- | left list is list of files from dists directory
 --   right list is list of files from pool directory
-makeFileList :: FilePath -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
-makeFileList repoDir =
+-- NOTE: duplicates are not remove if a file appears in more than one dist
+makeFileList :: (FilePath -> Bool) -> FilePath -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
+makeFileList filterp repoDir  =
     do releases <- findReleases repoDir
-       liftM (\l -> (concatMap fst l, concatMap snd l)) $ mapM (makeDistFileList repoDir) releases
+       liftM (\l -> (concatMap fst l, concatMap snd l)) $ mapM (makeDistFileList filterp repoDir) releases
 
 mergeLists :: [([a],[a])] -> ([a],[a])
 mergeLists l = (concatMap fst l, concatMap snd l)
@@ -203,8 +216,8 @@ isSymLink path = getSymbolicLinkStatus path >>= return . isSymbolicLink
 -- the left list is the file paths relative to repoDir for the dist files
 -- the right list is the file paths relative to repoDir for the pool files
 -- they are returned seperately in case the parent of the dist and pool directories are different.
-makeDistFileList :: FilePath -> String -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
-makeDistFileList repoDir distName =
+makeDistFileList :: (FilePath -> Bool) -> FilePath -> String -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
+makeDistFileList filterp repoDir distName =
     do let distDir = repoDir +/+ "dists" +/+ distName
            releaseFP = distDir +/+ "Release"
        release <- parseControlFromFile releaseFP
@@ -212,14 +225,11 @@ makeDistFileList repoDir distName =
          (Left e) -> error (show e)
          (Right (Control [p])) -> 
              let md5sums =
-                     case fieldValue "MD5Sum" p of
+                     case md5sumField p of
                        (Just md5) -> md5
-                       Nothing ->
-                           case fieldValue "Md5Sum" p of
-                             (Just md5) -> md5
-                             Nothing -> error $ "Did not find MD5Sum field in " ++ releaseFP
+                       Nothing -> error $ "Did not find MD5Sum field in " ++ releaseFP
              in
-                   do let controlFiles = map (makeTuple . B.words) $ filter (not . B.null) (B.lines md5sums)
+                   do let controlFiles = filter (\(_,_,fp) -> filterp fp) $ map (makeTuple . B.words) $ filter (not . B.null) (B.lines md5sums)
                           packages = filter (\(_,_,fp) -> ("Packages" `isSuffixOf` fp)) controlFiles
                           sources = filter (\(_,_,fp) -> ("Sources" `isSuffixOf` fp)) controlFiles
                       -- this does not get the .gz and .bz2 files ?
@@ -266,12 +276,25 @@ makePackageFileList (Control paragraphs) =
       makeParagraphTuple p =
           let fp     = maybe (error $ "Paragraph missing Filename field:\n" ++ show p) B.unpack (fieldValue "Filename" p)
               size   = maybe (error $ "Paragraph missing Size field") (read . B.unpack) (fieldValue "Size" p)
-              md5sum = fmap B.unpack $ case fieldValue "MD5Sum" p of 
-                                         m@(Just _) -> m
-                                         Nothing -> fieldValue "Md5Sum" p
+              md5sum = fmap B.unpack $ md5sumField p
               sha1   = fmap B.unpack $ fieldValue "SHA1" p
               sha256 = fmap B.unpack $ fieldValue "SHA256" p
           in (CheckSums { md5sum = md5sum, sha1 = sha1, sha256 = sha256 }, size, fp)
+
+-- |look up the md5sum file in a paragraph
+-- Tries several different variations:
+--  MD5Sum:
+--  Md5Sum:
+--  MD5sum:
+md5sumField :: (ControlFunctions a) => Paragraph' a -> Maybe a
+md5sumField p =
+    case fieldValue "MD5Sum" p of
+      m@(Just _) -> m
+      Nothing -> 
+          case fieldValue "Md5Sum" p of
+            m@(Just _) -> m
+            Nothing -> fieldValue "MD5sum" p
+            
                   
 
 -- |TODO: check sums \/ filesizes
