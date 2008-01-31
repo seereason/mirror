@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Debian.Mirror
     (pushLocalRelease
     , remoteCommand
@@ -158,11 +158,11 @@ createDestDir dest =
            parent = dest { uriPath = dirname }
        dateStamp <- getCurrentTime >>= return . formatTime defaultTimeLocale "%Y%m%d_%H:%M:%S"
        ec <- remoteCommand parent $ unlines [ "if [ -h " ++ escapeShell basename  ++ " ] ; then"
-                                            , "	echo Making new copy of target directory $(readlink " ++ escapeShell  basename ++ ") -\\> " ++ basename ++ "-" ++ dateStamp ++ " ;" 
+                                            , " echo Making new copy of target directory $(readlink " ++ escapeShell  basename ++ ") -\\> " ++ basename ++ "-" ++ dateStamp ++ " ;"
                                             , "  cp -al $(readlink " ++ escapeShell basename ++ ") " ++ escapeShell basename ++ "-" ++ dateStamp ++ " ; "
                                             , "else"
-                                            , "	echo " ++ basename ++ " is not a symlink ;"
-                                            , "	exit 1 ;"
+                                            , " echo " ++ basename ++ " is not a symlink ;"
+                                            , " exit 1 ;"
                                             , "fi"
                                             ]
        when (ec /= ExitSuccess) (error $ "Failed to create directory on destination server: " ++ show dest)
