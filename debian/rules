@@ -30,8 +30,6 @@ install: build
 
 	# Add here commands to install the package into debian/tmp
 	dh_haskell -a
-	mkdir -p debian/debian-mirror/usr
-	mv debian/libghc6-debian-mirror-dev/usr/lib/haskell-packages/ghc6/bin debian/debian-mirror/usr
 
 build-indep: build-indep-stamp
 build-indep-stamp:
@@ -46,6 +44,11 @@ install-indep: build-indep
 	# Add here commands to install the package into debian/tmp
 	dh_haskell -i
 	make doc
+	-rm debian/libhugs-debian-mirror/usr/bin/debian-mirror
+
+install-arch: build
+	mkdir -p debian/debian-mirror/usr
+	mv debian/libghc6-debian-mirror-dev/usr/lib/haskell-packages/ghc6/bin debian/debian-mirror/usr
 
 # Build architecture-independent files here.
 binary-indep: build-indep install-indep
@@ -66,7 +69,7 @@ binary-indep: build-indep install-indep
 	dh_builddeb -i
 
 # Build architecture-dependent files here.
-binary-arch: build install
+binary-arch: build install install-arch
 	dh_testdir
 	dh_testroot
 	dh_installchangelogs -a

@@ -11,10 +11,13 @@ module Debian.Mirror
 import Control.Concurrent
 import Control.Arrow
 import Control.Monad
+import qualified Data.Map as M
+import Data.Function
 import Data.Maybe
 import Data.List
 import Data.Time
 import qualified Data.ByteString.Char8 as B
+import Debian.Apt.Index
 import Debian.Control.ByteString
 import Linspire.Unix.FilePath
 import qualified Linspire.Unix.Misc as M
@@ -208,6 +211,12 @@ findReleases repoDir =
 -- TODO: move to unix utils
 isSymLink path = getSymbolicLinkStatus path >>= return . isSymbolicLink
 
+data IndexFile =
+    IndexFile { uncompressed	:: Maybe (CheckSums, Integer, FilePath)
+              , gz 		:: Maybe (CheckSums, Integer, FilePath)
+              , bzip2		:: Maybe (CheckSums, Integer, FilePath)
+              }
+
 -- TODO: check GPG signatures
 -- TODO: include all sums for control files
 -- TODO: don't assume Packages file exists, (possibly only .gz or .bz2 exists)
@@ -216,6 +225,7 @@ isSymLink path = getSymbolicLinkStatus path >>= return . isSymbolicLink
 -- the left list is the file paths relative to repoDir for the dist files
 -- the right list is the file paths relative to repoDir for the pool files
 -- they are returned seperately in case the parent of the dist and pool directories are different.
+-- JAS: btw, this code is horrible, sorry about that.
 makeDistFileList :: (FilePath -> Bool) -> FilePath -> String -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
 makeDistFileList filterp repoDir distName =
     do let distDir = repoDir +/+ "dists" +/+ distName
@@ -230,9 +240,8 @@ makeDistFileList filterp repoDir distName =
                        Nothing -> error $ "Did not find MD5Sum field in " ++ releaseFP
              in
                    do let controlFiles = filter (\(_,_,fp) -> filterp fp) $ map (makeTuple . B.words) $ filter (not . B.null) (B.lines md5sums)
-                          packages = filter (\(_,_,fp) -> ("Packages" `isSuffixOf` fp)) controlFiles
-                          sources = filter (\(_,_,fp) -> ("Sources" `isSuffixOf` fp)) controlFiles
-                      -- this does not get the .gz and .bz2 files ?
+                      packages <- findIndexes distDir "Packages" {- filter (\(_,_,fp) -> ("Packages" `isSuffixOf` fp)) -} controlFiles
+                      sources <- findIndexes distDir "Sources" {- filter (\(_,_,fp) -> ("Sources" `isSuffixOf` fp)) -} controlFiles
                       packageFiles <- mapM (makePackageFileListIO distDir) packages
                       sourceFiles <- mapM (makeSourceFileListIO distDir) sources
                       cf <- contentsFiles distDir
@@ -245,6 +254,39 @@ makeDistFileList filterp repoDir distName =
                       return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ distFiles ++ controlFiles, concat (packageFiles ++ sourceFiles))
          (Right _) -> error $ "Did not find exactly one paragraph in " ++ releaseFP
     where
+      -- findIndexes and friends should be moved into Debian.Apt.Indexes
+      findIndexes distDir iType controlFiles =
+          let m = M.toList (foldr (insertType iType) M.empty controlFiles)
+          in
+            do m' <- mapM (filterExists distDir) m
+               return $ map head (filter (not . null) m')
+      -- insertType :: String -> (CheckSums, Integer, FilePath) -> M.Map FilePath ((CheckSums, Integer, FilePath), Compression) -> M.Map FilePath ((CheckSums, Integer, FilePath), Compression)
+      insertType iType t@(_,_,fp) m =
+          case uncompressedName iType fp of
+            Nothing -> m
+            (Just (un, compression)) ->
+                M.insertWith (\x y -> sortBy (compare `on` snd) (x ++y)) un [(t, compression)] m
+      uncompressedName :: String -> FilePath -> Maybe (FilePath, Compression)
+      uncompressedName iType fp
+          | isSuffixOf iType fp = Just (fp, Uncompressed)
+          | isSuffixOf (iType ++".gz") fp = Just (reverse . (drop 3) . reverse $ fp, GZ)
+          | isSuffixOf (iType ++".bz2") fp = Just (reverse . (drop 4) . reverse $ fp, BZ2)
+          | otherwise = Nothing
+      filterExists distDir (_, alternatives) =
+          do e <- filterM ( \((_,_,fp),_) -> fileExist (distDir +/+ fp)) alternatives
+             -- when (null e) (error $ "None of these files exist: " ++ show alternatives)
+             return e
+      -- this is monoid or monadplus ?
+      -- preferred :: (FilePath, Compression) -> (FilePath, Compression) -> (FilePath, Compression)
+{-
+      preferred (fp1, t1) (fp2, t2)
+          | t1 == t2 = (fp1, t1) -- shouldn't happen, perhaps an error is needed  ?
+          | t1 == Uncompressed = (fp1, t1)
+          | t2 == Uncompressed = (fp2, t2)
+          | t1 == BZ2 = (fp1, t1)
+          | t2 == BZ2 = (fp2, t2)
+          | otherwise = (fp1, t1)
+-}
       makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
       makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), B.unpack fp)
       makeOther :: FilePath -> FilePath -> IO (Maybe (CheckSums, Integer, FilePath))
@@ -263,10 +305,11 @@ makeDistFileList filterp repoDir distName =
              return $ filter (isPrefixOf "Contents-" . baseName) files
 
 
+
 -- |TODO: check sums \/ filesizes
-makePackageFileListIO :: FilePath -> (CheckSums, Integer, FilePath) -> IO [(CheckSums, Integer, FilePath)]
-makePackageFileListIO distDir (checkSums, size, fp) =
-     (parseControlFromFile (distDir +/+ fp)) >>= either (error . show) (return . makePackageFileList)
+makePackageFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
+makePackageFileListIO distDir ((checkSums, size, fp), compression) =
+     (controlFromIndex ((distDir +/+ fp), compression)) >>= either (error . show) (return . makePackageFileList)
 
 -- |TODO: improve error message
 makePackageFileList :: Control -> [(CheckSums, Integer, FilePath)]
@@ -298,9 +341,9 @@ md5sumField p =
                   
 
 -- |TODO: check sums \/ filesizes
-makeSourceFileListIO :: FilePath -> (CheckSums, Integer, FilePath) -> IO [(CheckSums, Integer, FilePath)]
-makeSourceFileListIO distDir (checkSums, size, fp) =
-     (parseControlFromFile (distDir +/+ fp)) >>= either (error . show) (return . makeSourceFileList)
+makeSourceFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
+makeSourceFileListIO distDir ((checkSums, size, fp), compression) =
+     (controlFromIndex ((distDir +/+ fp), compression)) >>= either (error . show) (return . makeSourceFileList)
 
 makeSourceFileList :: Control -> [(CheckSums, Integer, FilePath)]
 makeSourceFileList (Control paragraphs) =
