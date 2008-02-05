@@ -53,7 +53,7 @@ makeDist ((Repository repository), arches, dists) destDir =
 
         mapM_ (\(i, fp) -> putStrLn ("Creating directory (" ++ show i ++ " of " ++ show numDirs ++ "): " ++ fp) >> 
                           createDirectoryIfMissing True (destDir +/+ fp) ) (zip [1..numDirs] directories)
-        res <- mapM (\(i, fp) -> putStrLn ("Hardlinking file (" ++ show i ++ " of " ++ show numFiles ++" ): " ++ fp) >> 
+        res <- mapM (\(i, fp) -> putStrLn ("Hardlinking file (" ++ show i ++ " of " ++ show numFiles ++"): " ++ fp) >> 
                                 makeHardLink repository destDir fp) (zip [1..numFiles] files)
         case catMaybes res of
           [] -> return ()
@@ -94,6 +94,8 @@ isActive :: SourceSpec -> Bool
 isActive (SourceSpec Active _ _) = True
 isActive _ = False
 
+-- TODO: the new directory should have the suffix .in-progress, until
+-- the update is done. Then do a rename and update the symlink.
 updateTarget :: Target -> IO ()
 updateTarget (Target targetName basePath dateFormat sources)  =
     do zt <- getZonedTime
