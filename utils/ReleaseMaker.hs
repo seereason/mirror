@@ -10,6 +10,7 @@ targets :: [Target]
 targets = 
     [ skipjackFeistyTarget
     , ubuntuFeistyTarget
+    , ubuntuGutsyTarget
     ]
 
 -- * Repositories
@@ -31,8 +32,12 @@ feisty_all 		= [feisty, feisty_backports, feisty_updates, feisty_security]
 gutsy 			= Dist "gutsy"
 gutsy_backports 	= Dist "gutsy-backports"
 gutsy_updates 		= Dist "gutsy-updates"
-gutsy_security 	= Dist "gutsy-security"
+gutsy_security 		= Dist "gutsy-security"
 gutsy_all 		= [gutsy, gutsy_backports, gutsy_updates, gutsy_security]
+
+gutsy_cnb		= Dist "cnb-gutsy"
+gutsy_extra		= Dist "gutsy-extra"
+gutsy_extra_proposed	= Dist "gutsy-extra-proposed"
 
 -- ** Freespire/Linspire Dists
 
@@ -61,8 +66,8 @@ freespireCnbUbuntu      arches dists = SourceSpec Active (Repository "/srv/addon
 -- *** Ubuntu
 
 ubuntuCnrUbuntuExtra arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNRUbuntuExtra", arches, dists) "CNRUbuntuExtra"
-ubuntuCnrUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNRUbuntu",      arches, dists) "CNRUbuntu"
-ubuntuMsUbuntu       arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/MSUbuntu",       arches, dists) "MSUbuntu"
+-- ubuntuCnrUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNRUbuntu",      arches, dists) "CNRUbuntu"
+-- ubuntuMsUbuntu       arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/MSUbuntu",       arches, dists) "MSUbuntu"
 ubuntuCnbUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNBUbuntu",      arches, dists) "CNBUbuntu"
 
 -- * Targets
@@ -94,8 +99,21 @@ ubuntuFeistyTarget =
            , sourceSpecs =
                [ ubuntu         	arches [feisty, feisty_backports, feisty_updates, feisty_security]
                , ubuntuCnrUbuntuExtra	arches [feisty_extra, feisty_extra_proposed]
-               , ubuntuCnrUbuntu	arches [skipjack_feisty]
                , ubuntuCnbUbuntu	arches [cnb_feisty] 
+               ]
+           }
+    where
+      arches = [I386]
+
+ubuntuGutsyTarget :: Target
+ubuntuGutsyTarget =
+    Target { targetName = "ubuntu-gutsy"
+           , basePath = "/srv/dists/ubuntu"
+           , dateFormat = dateAndTime
+           , sourceSpecs =
+               [ ubuntu         	arches [gutsy, gutsy_backports, gutsy_updates, gutsy_security]
+               , ubuntuCnrUbuntuExtra	arches [gutsy_extra, gutsy_extra_proposed]
+               , ubuntuCnbUbuntu	arches [gutsy_cnb] 
                ]
            }
     where
