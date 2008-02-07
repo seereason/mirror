@@ -47,6 +47,8 @@ updateTarget (Target targetName basePath dateFormat sourceSpecs) =
        makeRelease sourceSpecs (basePath +/+ timestampFP)
        forceSymbolicLink timestampFP (basePath +/+ targetName)
 -}
+
+-- TODO: verify that the targetNames are unique
 distMain :: [Target] -> IO ()
 distMain targets =
     do args <- getArgs

@@ -9,27 +9,34 @@ main = distMain targets
 targets :: [Target]
 targets = 
     [ skipjackFeistyTarget
+    , ubuntuFeistyTarget
     ]
 
 -- * Repositories
 
-ubuntuRepo		= Repository "/srv/mirrors/ubuntu-archives/current"
-cnrUbuntuExtraRepo 	= Repository "/srv/mirrors/CNRUbuntuExtra"
-cnrUbuntuRepo 		= Repository "/srv/mirrors/CNRUbuntu"
-cnbUbuntuRepo 		= Repository "/srv/mirrors/CNBUbuntu"
-msUbuntuRepo 		= Repository "/srv/mirrors/MSUbuntu"
+ubuntuRepo		= Repository "/srv/mirrors/ubuntu.com/ubuntu"
 
 -- * Dists
 
 -- ** Ubuntu Dists
+
+-- *** Feisty
 feisty 			= Dist "feisty"
 feisty_backports 	= Dist "feisty-backports"
 feisty_updates 		= Dist "feisty-updates"
 feisty_security 	= Dist "feisty-security"
 feisty_all 		= [feisty, feisty_backports, feisty_updates, feisty_security]
 
+-- *** Gutsy
+gutsy 			= Dist "gutsy"
+gutsy_backports 	= Dist "gutsy-backports"
+gutsy_updates 		= Dist "gutsy-updates"
+gutsy_security 	= Dist "gutsy-security"
+gutsy_all 		= [gutsy, gutsy_backports, gutsy_updates, gutsy_security]
+
 -- ** Freespire/Linspire Dists
 
+-- *** Skipjack Feisty
 skipjack_feisty		= Dist "skipjack-feisty"
 ms_feisty		= Dist "ms-feisty"
 cnb_feisty		= Dist "cnb-feisty"
@@ -38,26 +45,57 @@ feisty_extra_proposed	= Dist"feisty-extra-proposed"
 
 -- * SourceSpecs
 
+-- ** Mirrors
 
-ubuntu arches dists         = SourceSpec Frozen (ubuntuRepo        , arches, dists) "ubuntu"
-cnrUbuntuExtra arches dists = SourceSpec Active (cnrUbuntuExtraRepo, arches, dists) "CNRUbuntuExtra"
-cnrUbuntu arches dists      = SourceSpec Active (cnrUbuntuRepo     , arches, dists) "CNRUbuntu"
-msUbuntu arches dists       = SourceSpec Active (msUbuntuRepo      , arches, dists) "MSUbuntu"
-cnbUbuntu arches dists      = SourceSpec Active (cnbUbuntuRepo     , arches, dists) "CNBUbuntu"
+ubuntu arches dists = SourceSpec Frozen (ubuntuRepo, arches, dists) "ubuntu"
+
+-- ** Addons
+
+-- *** Freespire
+
+freespireCnrUbuntuExtra arches dists = SourceSpec Active (Repository "/srv/addons/freespire/CNRUbuntuExtra", arches, dists) "CNRUbuntuExtra"
+freespireCnrUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/freespire/CNRUbuntu",      arches, dists) "CNRUbuntu"
+freespireMsUbuntu       arches dists = SourceSpec Active (Repository "/srv/addons/freespire/MSUbuntu",       arches, dists) "MSUbuntu"
+freespireCnbUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/freespire/CNBUbuntu",      arches, dists) "CNBUbuntu"
+
+-- *** Ubuntu
+
+ubuntuCnrUbuntuExtra arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNRUbuntuExtra", arches, dists) "CNRUbuntuExtra"
+ubuntuCnrUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNRUbuntu",      arches, dists) "CNRUbuntu"
+ubuntuMsUbuntu       arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/MSUbuntu",       arches, dists) "MSUbuntu"
+ubuntuCnbUbuntu      arches dists = SourceSpec Active (Repository "/srv/addons/ubuntu/CNBUbuntu",      arches, dists) "CNBUbuntu"
 
 -- * Targets
+
+dateAndTime :: String
+dateAndTime = "%Y-%m-%d_%H:%M:%S"
 
 skipjackFeistyTarget :: Target
 skipjackFeistyTarget =
     Target { targetName = "skipjack-feisty"
            , basePath = "/srv/dists/freespire"
-           , dateFormat = "%Y-%m-%d_%H:%M:%S"
+           , dateFormat = dateAndTime
            , sourceSpecs =
-               [ ubuntu         arches [feisty, feisty_backports, feisty_updates, feisty_security]
-               , cnrUbuntuExtra arches [feisty_extra, feisty_extra_proposed]
-               , cnrUbuntu      arches [skipjack_feisty]
-               , msUbuntu       arches [ms_feisty]
-               , cnbUbuntu	arches [cnb_feisty]
+               [ ubuntu			 arches [feisty, feisty_backports, feisty_updates, feisty_security]
+               , freespireCnrUbuntuExtra arches [feisty_extra, feisty_extra_proposed]
+               , freespireCnrUbuntu      arches [skipjack_feisty]
+               , freespireMsUbuntu       arches [ms_feisty]
+               , freespireCnbUbuntu	 arches [cnb_feisty]
+               ]
+           }
+    where
+      arches = [I386]
+
+ubuntuFeistyTarget :: Target
+ubuntuFeistyTarget =
+    Target { targetName = "ubuntu-feisty"
+           , basePath = "/srv/dists/ubuntu"
+           , dateFormat = dateAndTime
+           , sourceSpecs =
+               [ ubuntu         	arches [feisty, feisty_backports, feisty_updates, feisty_security]
+               , ubuntuCnrUbuntuExtra	arches [feisty_extra, feisty_extra_proposed]
+               , ubuntuCnrUbuntu	arches [skipjack_feisty]
+               , ubuntuCnbUbuntu	arches [cnb_feisty] 
                ]
            }
     where

@@ -101,26 +101,32 @@ updateTarget (Target targetName basePath dateFormat sources)  =
     do zt <- getZonedTime
        let timestampFP = (targetName ++ "-snapshots") +/+ (targetName ++"-"++ formatTime defaultTimeLocale dateFormat zt)
            nextDir     = basePath +/+ timestampFP
+           nextDirIP   = nextDir ++ ".in-progress"
            currentDir  = basePath +/+ targetName
        e <- exists nextDir
        when e (error $ nextDir ++ " already exists.")
-       createDirectoryIfMissing True nextDir
+       createDirectoryIfMissing True nextDirIP
        let (active, frozen) = partition isActive sources
-       mapM_ (makeDist' currentDir nextDir) active
-       mapM_ (makeDist' currentDir nextDir) frozen
-       forceSymbolicLink timestampFP (basePath +/+ targetName)
+       mapM_ (makeDist' currentDir nextDirIP) active
+       mapM_ (makeDist' currentDir nextDirIP) frozen
+       rename nextDirIP nextDir
+       forceSymbolicLink timestampFP currentDir
     where
       makeDist' _ nextDir (SourceSpec Frozen dist name) =
           makeDist dist (nextDir +/+ name)
       makeDist' currentDir nextDir (SourceSpec Active dist@(Repository repoFP,_,_) name) =
           do let currDistDir = (currentDir +/+ name)
-             status <- getSymbolicLinkStatus currDistDir
-             if isSymbolicLink status
-                then do let inProgress = (currentDir +/+ name ++ ".in-progress")
-                        makeDist dist inProgress -- perhaps the Repository should be found by running realpath on the symlink ?
-                        removeLink currDistDir
-                        rename inProgress currDistDir
-                else hPutStrLn stderr $ (currDistDir ++ " is not a symbolic-link, assuming already frozen from previous run.")
+             (do status <- getSymbolicLinkStatus currDistDir
+                 if isSymbolicLink status
+                  then do let inProgress = (currentDir +/+ name ++ ".in-progress")
+                          makeDist dist inProgress -- perhaps the Repository should be found by running realpath on the symlink ?
+                          removeLink currDistDir
+                          rename inProgress currDistDir
+                  else hPutStrLn stderr $ (currDistDir ++ " is not a symbolic-link, assuming already frozen from previous run.")) 
+                `catch`
+                     (\e -> if isDoesNotExistError e
+                           then hPutStrLn stderr $ (currDistDir ++ " does not exist, assuming it is new dist.")
+                           else ioError e)
              createSymbolicLink repoFP (nextDir +/+ name)
 
 exists :: FilePath -> IO Bool
