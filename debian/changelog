@@ -1,3 +1,10 @@
+haskell-debian-mirror (1.1.1) unstable; urgency=low
+
+  * Work even if dist is brand new
+  * Include .in-progress suffix until update is complete
+
+ -- Jeremy Shaw <jeremy@n-heptane.com>  Tue, 12 Feb 2008 14:44:57 -0800
+
 haskell-debian-mirror (1.1.0) unstable; urgency=low
 
   * Added md5sumField to look up various capitalizations of md5sum.
