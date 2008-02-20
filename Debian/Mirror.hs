@@ -3,6 +3,8 @@ module Debian.Mirror
     (pushLocalRelease
     , remoteCommand
     , makeDistFileList
+    , makePackageFileListIO
+    , makeSourceFileListIO
     , archFilter
     , md5sumField
     )
@@ -126,9 +128,6 @@ fudgePath fp files uri =
       if null invalid 
       then ((fp +/+ prefix), map (drop plength) files', uri { uriPath = escapeURIString isUnescapedInURI $ (uriPath uri) +/+ prefix })
       else error ("These files do not have the correct prefix, " ++ prefix ++ "\n" ++ unlines invalid)
-          
-        
-
 
 rsync :: FilePath -> [FilePath] -> URI -> IO ()
 rsync srcDir files remote =
@@ -171,12 +170,6 @@ createDestDir dest =
        when (ec /= ExitSuccess) (error $ "Failed to create directory on destination server: " ++ show dest)
        return $ (dest { uriPath = escapeURIString isUnescapedInURI $ (uriPath dest) ++ "-" ++ dateStamp })
 
-data CheckSums 
-    = CheckSums { md5sum :: Maybe String
-                , sha1 :: Maybe String
-                , sha256 :: Maybe String
-                }
-      deriving (Read, Show, Eq)
 
 -- | left list is list of files from dists directory
 --   right list is list of files from pool directory
@@ -219,63 +212,32 @@ data IndexFile =
 
 -- TODO: check GPG signatures
 -- TODO: include all sums for control files
--- TODO: don't assume Packages file exists, (possibly only .gz or .bz2 exists)
--- TODO: include Release Release.gpg, Contents, etc in control file list
 -- returns:
 -- the left list is the file paths relative to repoDir for the dist files
 -- the right list is the file paths relative to repoDir for the pool files
 -- they are returned seperately in case the parent of the dist and pool directories are different.
 -- JAS: btw, this code is horrible, sorry about that.
 makeDistFileList :: (FilePath -> Bool) -> FilePath -> String -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
-makeDistFileList filterp repoDir distName =
+makeDistFileList filterP repoDir distName =
     do let distDir = repoDir +/+ "dists" +/+ distName
            releaseFP = distDir +/+ "Release"
        release <- parseControlFromFile releaseFP
        case release of
          (Left e) -> error (show e)
-         (Right (Control [p])) -> 
-             let md5sums =
-                     case md5sumField p of
-                       (Just md5) -> md5
-                       Nothing -> error $ "Did not find MD5Sum field in " ++ releaseFP
-             in
-                   do let controlFiles = filter (\(_,_,fp) -> filterp fp) $ map (makeTuple . B.words) $ filter (not . B.null) (B.lines md5sums)
-                      packages <- findIndexes distDir "Packages" {- filter (\(_,_,fp) -> ("Packages" `isSuffixOf` fp)) -} controlFiles
-                      sources <- findIndexes distDir "Sources" {- filter (\(_,_,fp) -> ("Sources" `isSuffixOf` fp)) -} controlFiles
-                      packageFiles <- mapM (makePackageFileListIO distDir) packages
-                      sourceFiles <- mapM (makeSourceFileListIO distDir) sources
-                      cf <- contentsFiles distDir
-                      distFiles <- mapM (makeOther distDir) ("Release" : "Release.gpg" : cf) >>= return . catMaybes
-                      -- mapM_ print packages
-                      -- mapM_ print sources
-                      -- mapM_ print otherFiles
-                      -- mapM_ print (concat packageFiles)
-                      -- mapM_ print (concat sourceFiles)
-                      return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ distFiles ++ controlFiles, concat (packageFiles ++ sourceFiles))
-         (Right _) -> error $ "Did not find exactly one paragraph in " ++ releaseFP
+         (Right control) -> 
+             do let indexFiles = indexesInRelease filterP control
+                packages <- findIndexes distDir "Packages" indexFiles
+                sources  <- findIndexes distDir "Sources"  indexFiles
+                packageFiles <- mapM (makePackageFileListIO distDir) packages
+                sourceFiles  <- mapM (makeSourceFileListIO  distDir) sources
+                cf <- findContentsFiles filterP distDir
+                otherFiles <- mapM (tupleFromFilePath distDir) ("Release" : "Release.gpg" : cf) >>= return . catMaybes
+                return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ otherFiles ++ indexFiles, concat (packageFiles ++ sourceFiles))
     where
-      -- findIndexes and friends should be moved into Debian.Apt.Indexes
-      findIndexes distDir iType controlFiles =
-          let m = M.toList (foldr (insertType iType) M.empty controlFiles)
-          in
-            do m' <- mapM (filterExists distDir) m
-               return $ map head (filter (not . null) m')
-      -- insertType :: String -> (CheckSums, Integer, FilePath) -> M.Map FilePath ((CheckSums, Integer, FilePath), Compression) -> M.Map FilePath ((CheckSums, Integer, FilePath), Compression)
-      insertType iType t@(_,_,fp) m =
-          case uncompressedName iType fp of
-            Nothing -> m
-            (Just (un, compression)) ->
-                M.insertWith (\x y -> sortBy (compare `on` snd) (x ++y)) un [(t, compression)] m
-      uncompressedName :: String -> FilePath -> Maybe (FilePath, Compression)
-      uncompressedName iType fp
-          | isSuffixOf iType fp = Just (fp, Uncompressed)
-          | isSuffixOf (iType ++".gz") fp = Just (reverse . (drop 3) . reverse $ fp, GZ)
-          | isSuffixOf (iType ++".bz2") fp = Just (reverse . (drop 4) . reverse $ fp, BZ2)
-          | otherwise = Nothing
-      filterExists distDir (_, alternatives) =
-          do e <- filterM ( \((_,_,fp),_) -> fileExist (distDir +/+ fp)) alternatives
-             -- when (null e) (error $ "None of these files exist: " ++ show alternatives)
-             return e
+      makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
+      makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), B.unpack fp)
+
+
       -- this is monoid or monadplus ?
       -- preferred :: (FilePath, Compression) -> (FilePath, Compression) -> (FilePath, Compression)
 {-
@@ -287,23 +249,6 @@ makeDistFileList filterp repoDir distName =
           | t2 == BZ2 = (fp2, t2)
           | otherwise = (fp1, t1)
 -}
-      makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
-      makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), B.unpack fp)
-      makeOther :: FilePath -> FilePath -> IO (Maybe (CheckSums, Integer, FilePath))
-      makeOther basePath fp =
-          do e <- fileExist (basePath +/+ fp)
-             if not e
-              then return Nothing
-              else do size <- getFileStatus (basePath +/+ fp) >>= return . fromIntegral . fileSize
-                      md5 <- M.md5sum (basePath +/+ fp)
-                      return $ Just (CheckSums { md5sum = Just md5, sha1 = Nothing, sha256 = Nothing }, size, fp)
-      contentsFiles :: FilePath -> IO [FilePath]
-      contentsFiles distDir =
-          do files <- getDirectoryContents distDir
---             print files
---             print $ filter (isPrefixOf "Contents-" . baseName) files
-             return $ filter (isPrefixOf "Contents-" . baseName) files
-
 
 
 -- |TODO: check sums \/ filesizes
