@@ -9,12 +9,13 @@ import Data.Time
 import Extra.Help as H
 import Extra.HughesPJ
 import Linspire.Unix.FilePath
-import System.Console.GetOpt
+import Extra.Help.GetOpt
 import System.Locale
 import System.Environment
 import System.IO
+import System.Exit
 
-manpage :: String -> [Target] -> Manpage a
+manpage :: String -> [Target] -> Manpage Opts
 manpage progName targets =
     Manpage { name		= progName 
             , sectionNum	= General
@@ -34,9 +35,16 @@ manpage progName targets =
           targetSection :: (ShowIn, Text, Elements)
           targetSection = (InBoth, (text "TARGETS"), (showTargets targets))
 
-opts :: [OptDescr a]
+data Opts 
+    = DumpManPage
+    | Help
+
+opts :: [OptDescr Opts]
 opts =
-    [ Option [] ["dump-man-page"] (NoArg undefined) "dump the manpage for this program on stdout and exit immediately. Use groff -mandoc to process the output."
+    [ Option []    ["dump-man-page"] (NoArg DumpManPage) 
+                 (text "dump the manpage for this program on stdout and exit immediately. Use groff -mandoc to process the output.")
+    , Option ['h'] ["help"]          (NoArg Help) 
+                 (text "show this help text.")
     ]
 
 {-
@@ -54,6 +62,7 @@ distMain targets =
     do args <- getArgs
        progName <- getProgName
        when ("--dump-man-page" `elem` args) (dumpManPage (manpage progName targets))
+       when ("--help" `elem` args) (usage (manpage progName targets) >>= putStrLn >> exitWith ExitSuccess)
        case (partition (isTargetName targets) args) of
          (tgts, unknown)
              | not (null unknown) ->
