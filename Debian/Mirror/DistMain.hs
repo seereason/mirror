@@ -8,7 +8,7 @@ import Data.List
 import Data.Time
 import Extra.Help as H
 import Extra.HughesPJ
-import Linspire.Unix.FilePath
+import System.Unix.FilePath
 import Extra.Help.GetOpt
 import System.Locale
 import System.Environment

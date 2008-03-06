@@ -21,8 +21,8 @@ import Data.Time
 import qualified Data.ByteString.Char8 as B
 import Debian.Apt.Index
 import Debian.Control.ByteString
-import Linspire.Unix.FilePath
-import qualified Linspire.Unix.Misc as M
+import System.Unix.FilePath
+import qualified System.Unix.Misc as M
 import Network.URI
 import System.Directory
 import System.IO

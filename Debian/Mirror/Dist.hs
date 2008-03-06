@@ -8,8 +8,8 @@ import Data.Maybe
 import Data.Time
 import Debian.Mirror
 import Extra.Help as H
-import Linspire.Unix.FilePath
-import Linspire.Unix.Files
+import System.Unix.FilePath
+import System.Unix.Files
 import Text.PrettyPrint.HughesPJ (Doc)
 import qualified Text.PrettyPrint.HughesPJ as D
 import System.Directory
@@ -58,11 +58,12 @@ makeDist ((Repository repository), arches, dists) destDir =
         case catMaybes res of
           [] -> return ()
           missing -> 
-              do hPutStrLn stderr $ "The following files where referenced by did not exist in the source repository:"
+              do hPutStrLn stderr $ "The following files where referenced but did not exist in the source repository:"
                  mapM_ (hPutStrLn stderr) missing
     where
       makeHardLink oldDir newDir file = 
-          (createLink (oldDir +/+ file) (newDir +/+ file) >> return Nothing) 
+          (realpath (oldDir +/+ file) >>= \realOldFp ->
+               createLink realOldFp (newDir +/+ file) >> return Nothing)
           `catch` 
           (\e -> if isDoesNotExistError e 
                 then return (Just (oldDir +/+ file))
