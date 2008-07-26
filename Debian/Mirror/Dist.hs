@@ -7,7 +7,7 @@ import Data.List
 import Data.Maybe
 import Data.Time
 import Debian.Mirror
-import Extra.Help as H
+import Text.Help as H
 import System.Unix.FilePath
 import System.Unix.Files
 import Text.PrettyPrint.HughesPJ (Doc)

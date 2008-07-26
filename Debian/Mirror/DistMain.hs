@@ -6,14 +6,14 @@ import Data.Maybe
 import Data.Monoid
 import Data.List
 import Data.Time
-import Extra.Help as H
 import Extra.HughesPJ
 import System.Unix.FilePath
-import Extra.Help.GetOpt
 import System.Locale
 import System.Environment
 import System.IO
 import System.Exit
+import Text.Help as H
+import Text.Help.GetOpt
 
 manpage :: String -> [Target] -> Manpage Opts
 manpage progName targets =
