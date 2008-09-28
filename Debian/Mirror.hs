@@ -10,26 +10,27 @@ module Debian.Mirror
     )
     where
 
-import Control.Concurrent
 import Control.Arrow
+import Control.Concurrent
 import Control.Monad
-import qualified Data.Map as M
+import qualified Data.ByteString.Char8 as B
 import Data.Function
+import qualified Data.Map as M
 import Data.Maybe
 import Data.List
 import Data.Time
-import qualified Data.ByteString.Char8 as B
 import Debian.Apt.Index
 import Debian.Control.ByteString
-import System.Unix.FilePath
-import qualified System.Unix.Misc as M
 import Network.URI
 import System.Directory
-import System.IO
-import System.Process
-import System.Posix.Files
 import System.Exit
+import System.FilePath
+import System.IO
 import System.Locale
+import System.Posix.Files
+import System.Process
+import System.Unix.FilePath
+import qualified System.Unix.Misc as M
 import Text.Regex.Posix
 
 type ByteString = B.ByteString
@@ -126,7 +127,7 @@ fudgePath fp files uri =
         invalid = filter (not . (prefixSlash `isPrefixOf`)) files'
     in
       if null invalid 
-      then ((fp +/+ prefix), map (drop plength) files', uri { uriPath = escapeURIString isUnescapedInURI $ (uriPath uri) +/+ prefix })
+      then ((fp </> prefix), map (drop plength) files', uri { uriPath = escapeURIString isUnescapedInURI $ (uriPath uri) </> prefix })
       else error ("These files do not have the correct prefix, " ++ prefix ++ "\n" ++ unlines invalid)
 
 rsync :: FilePath -> [FilePath] -> URI -> IO ()
@@ -184,20 +185,20 @@ mergeLists l = (concatMap fst l, concatMap snd l)
 
 findReleases :: FilePath -> IO [String]
 findReleases repoDir =
-    do let distsDir = repoDir +/+ "dists"
+    do let distsDir = repoDir </> "dists"
        e <- fileExist distsDir
        if not e
           then error (distsDir ++ " does not exist.") -- return []
           else do 
                   contents <- getDirectoryContents distsDir
                   dirs <- filterM (isRealDir distsDir) $ filter (\d -> (d /= ".") && (d /= "..")) contents
-                  release <- filterM (\dir -> fileExist (distsDir +/+ dir +/+ "Release")) dirs
+                  release <- filterM (\dir -> fileExist (distsDir </> dir </> "Release")) dirs
                   return release
     where
       isRealDir base fp =
-          do isDir <- liftM isDirectory $ getFileStatus (base +/+ fp)
+          do isDir <- liftM isDirectory $ getFileStatus (base </> fp)
              if isDir
-                then liftM not $ isSymLink (base +/+ fp)
+                then liftM not $ isSymLink (base </> fp)
                 else return False
                         
 
@@ -219,8 +220,8 @@ data IndexFile =
 -- JAS: btw, this code is horrible, sorry about that.
 makeDistFileList :: (FilePath -> Bool) -> FilePath -> String -> IO ([(CheckSums, Integer, FilePath)], [(CheckSums, Integer, FilePath)])
 makeDistFileList filterP repoDir distName =
-    do let distDir = repoDir +/+ "dists" +/+ distName
-           releaseFP = distDir +/+ "Release"
+    do let distDir = repoDir </> "dists" </> distName
+           releaseFP = distDir </> "Release"
        release <- parseControlFromFile releaseFP
        case release of
          (Left e) -> error (show e)
@@ -232,7 +233,7 @@ makeDistFileList filterP repoDir distName =
                 sourceFiles  <- mapM (makeSourceFileListIO  distDir) sources
                 cf <- findContentsFiles filterP distDir
                 otherFiles <- mapM (tupleFromFilePath distDir) ("Release" : "Release.gpg" : cf) >>= return . catMaybes
-                return $ (map (\(c,s,fp) -> (c,s,"dists" +/+ distName +/+fp)) $ otherFiles ++ indexFiles, concat (packageFiles ++ sourceFiles))
+                return $ (map (\(c,s,fp) -> (c,s,"dists" </> distName </>fp)) $ otherFiles ++ indexFiles, concat (packageFiles ++ sourceFiles))
     where
       makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
       makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), B.unpack fp)
@@ -254,7 +255,7 @@ makeDistFileList filterP repoDir distName =
 -- |TODO: check sums \/ filesizes
 makePackageFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
 makePackageFileListIO distDir ((checkSums, size, fp), compression) =
-     (controlFromIndex ((distDir +/+ fp), compression)) >>= either (error . show) (return . makePackageFileList)
+     (controlFromIndex ((distDir </> fp), compression)) >>= either (error . show) (return . makePackageFileList)
 
 -- |TODO: improve error message
 makePackageFileList :: Control -> [(CheckSums, Integer, FilePath)]
@@ -288,7 +289,7 @@ md5sumField p =
 -- |TODO: check sums \/ filesizes
 makeSourceFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
 makeSourceFileListIO distDir ((checkSums, size, fp), compression) =
-     (controlFromIndex ((distDir +/+ fp), compression)) >>= either (error . show) (return . makeSourceFileList)
+     (controlFromIndex ((distDir </> fp), compression)) >>= either (error . show) (return . makeSourceFileList)
 
 makeSourceFileList :: Control -> [(CheckSums, Integer, FilePath)]
 makeSourceFileList (Control paragraphs) =
@@ -299,7 +300,7 @@ makeSourceFileList (Control paragraphs) =
               directory = maybe (error $ "Paragraph missing Directory field") B.unpack (fieldValue "Directory" p)
           in map (makeTuple directory . B.words) $ filter (not . B.null) $ B.lines $ files
       makeTuple :: FilePath -> [B.ByteString] -> (CheckSums, Integer, FilePath)
-      makeTuple directory [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), directory +/+ B.unpack fp)
+      makeTuple directory [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), directory </> B.unpack fp)
 
 
 -- |only public key based, ssh access currently supported

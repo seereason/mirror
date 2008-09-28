@@ -2,21 +2,22 @@
 module Debian.Mirror.Dist where
 
 import Control.Monad
-import Data.Monoid
 import Data.List
 import Data.Maybe
+import Data.Monoid
 import Data.Time
 import Debian.Mirror
-import Text.Help as H
-import System.Unix.FilePath
-import System.Unix.Files
-import Text.PrettyPrint.HughesPJ (Doc)
-import qualified Text.PrettyPrint.HughesPJ as D
 import System.Directory
+import System.FilePath
 import System.IO
 import System.IO.Error
 import System.Locale
 import System.Posix.Files
+import System.Unix.FilePath (dirName, realpath)
+import System.Unix.Files
+import Text.Help as H
+import Text.PrettyPrint.HughesPJ (Doc)
+import qualified Text.PrettyPrint.HughesPJ as D
 
 newtype Repository 
     = Repository { unRepository :: FilePath }
@@ -52,7 +53,7 @@ makeDist ((Repository repository), arches, dists) destDir =
         -- mapM_ print directories
 
         mapM_ (\(i, fp) -> putStrLn ("Creating directory (" ++ show i ++ " of " ++ show numDirs ++ "): " ++ fp) >> 
-                          createDirectoryIfMissing True (destDir +/+ fp) ) (zip [1..numDirs] directories)
+                          createDirectoryIfMissing True (destDir </> fp) ) (zip [1..numDirs] directories)
         res <- mapM (\(i, fp) -> putStrLn ("Hardlinking file (" ++ show i ++ " of " ++ show numFiles ++"): " ++ fp) >> 
                                 makeHardLink repository destDir fp) (zip [1..numFiles] files)
         case catMaybes res of
@@ -62,11 +63,11 @@ makeDist ((Repository repository), arches, dists) destDir =
                  mapM_ (hPutStrLn stderr) missing
     where
       makeHardLink oldDir newDir file = 
-          (realpath (oldDir +/+ file) >>= \realOldFp ->
-               createLink realOldFp (newDir +/+ file) >> return Nothing)
+          (realpath (oldDir </> file) >>= \realOldFp ->
+               createLink realOldFp (newDir </> file) >> return Nothing)
           `catch` 
           (\e -> if isDoesNotExistError e 
-                then return (Just (oldDir +/+ file))
+                then return (Just (oldDir </> file))
                 else ioError e)
           
       nub' :: (Ord a) => [a] -> [a]
@@ -100,10 +101,10 @@ isActive _ = False
 updateTarget :: Target -> IO ()
 updateTarget (Target targetName basePath dateFormat sources)  =
     do zt <- getZonedTime
-       let timestampFP = (targetName ++ "-snapshots") +/+ (targetName ++"-"++ formatTime defaultTimeLocale dateFormat zt)
-           nextDir     = basePath +/+ timestampFP
+       let timestampFP = (targetName ++ "-snapshots") </> (targetName ++"-"++ formatTime defaultTimeLocale dateFormat zt)
+           nextDir     = basePath </> timestampFP
            nextDirIP   = nextDir ++ ".in-progress"
-           currentDir  = basePath +/+ targetName
+           currentDir  = basePath </> targetName
        e <- exists nextDir
        when e (error $ nextDir ++ " already exists.")
        createDirectoryIfMissing True nextDirIP
@@ -114,12 +115,12 @@ updateTarget (Target targetName basePath dateFormat sources)  =
        forceSymbolicLink timestampFP currentDir
     where
       makeDist' _ nextDir (SourceSpec Frozen dist name) =
-          makeDist dist (nextDir +/+ name)
+          makeDist dist (nextDir </> name)
       makeDist' currentDir nextDir (SourceSpec Active dist@(Repository repoFP,_,_) name) =
-          do let currDistDir = (currentDir +/+ name)
+          do let currDistDir = (currentDir </> name)
              (do status <- getSymbolicLinkStatus currDistDir
                  if isSymbolicLink status
-                  then do let inProgress = (currentDir +/+ name ++ ".in-progress")
+                  then do let inProgress = (currentDir </> name ++ ".in-progress")
                           makeDist dist inProgress -- perhaps the Repository should be found by running realpath on the symlink ?
                           removeLink currDistDir
                           rename inProgress currDistDir
@@ -128,7 +129,7 @@ updateTarget (Target targetName basePath dateFormat sources)  =
                      (\e -> if isDoesNotExistError e
                            then hPutStrLn stderr $ (currDistDir ++ " does not exist, assuming it is new dist.")
                            else ioError e)
-             createSymbolicLink repoFP (nextDir +/+ name)
+             createSymbolicLink repoFP (nextDir </> name)
 
 exists :: FilePath -> IO Bool
 exists fp =
