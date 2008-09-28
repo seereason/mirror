@@ -1,3 +1,10 @@
+haskell-debian-mirror (1.1.6) unstable; urgency=low
+
+  * Use either haskell-devscripts-cdbs or haskell-devscripts (>= 0.5.12)
+    as a build dependency.
+
+ -- David Fox <dsf@seereason.com>  Sun, 28 Sep 2008 10:03:36 -0700
+
 haskell-debian-mirror (1.1.5) unstable; urgency=low
 
   * Updated to reflecting moving of haskell-extra:Extra.Help to haskell-help:Text.Help
