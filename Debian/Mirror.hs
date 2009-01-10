@@ -255,7 +255,7 @@ makeDistFileList filterP repoDir distName =
 -- |TODO: check sums \/ filesizes
 makePackageFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
 makePackageFileListIO distDir ((checkSums, size, fp), compression) =
-     (controlFromIndex ((distDir </> fp), compression)) >>= either (error . show) (return . makePackageFileList)
+     (controlFromIndex' compression (distDir </> fp)) >>= either (error . show) (return . makePackageFileList)
 
 -- |TODO: improve error message
 makePackageFileList :: Control -> [(CheckSums, Integer, FilePath)]
@@ -289,7 +289,7 @@ md5sumField p =
 -- |TODO: check sums \/ filesizes
 makeSourceFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
 makeSourceFileListIO distDir ((checkSums, size, fp), compression) =
-     (controlFromIndex ((distDir </> fp), compression)) >>= either (error . show) (return . makeSourceFileList)
+     (controlFromIndex' compression (distDir </> fp)) >>= either (error . show) (return . makeSourceFileList)
 
 makeSourceFileList :: Control -> [(CheckSums, Integer, FilePath)]
 makeSourceFileList (Control paragraphs) =
