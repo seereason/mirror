@@ -38,15 +38,6 @@ Description: A library and application for mirroring Debian compatible repositor
   .
   This package contains the normal library files.
 
-Package: libhugs-debian-mirror
-Section: libdevel
-Architecture: all
-Depends: ${haskell:Depends}
-Description: A Haskell library that does something neat
- The library does something really cool you can not live without.
- .
- This package contains the libraries compiled for Hugs.
-
 Package: libghc6-debian-mirror-doc
 Section: doc
 Architecture: any
