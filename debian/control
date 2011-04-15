@@ -6,23 +6,23 @@ Build-Depends: debhelper (>= 4.0.0),
                haskell-devscripts, hscolour,
                haddock,
                hugs (>= 98.200503.08),
-               ghc6-doc (>= 6.8),
-               ghc6-prof (>= 6.6),
-               libghc6-debian-prof,
-               libghc6-debian-doc,
-               libghc6-unixutils-prof (>= 1.10),
-               libghc6-unixutils-doc,
-               libghc6-extra-prof (>= 1.11),
-               libghc6-extra-doc,
-               libghc6-help-prof,
-               libghc6-help-doc,
-               libghc6-network-prof,
-               libghc6-network-doc,
-               libghc6-regex-posix-prof,
+               ghc-doc (>= 6.8),
+               ghc-prof (>= 6.6),
+               libghc-debian-prof,
+               libghc-debian-doc,
+               libghc-unixutils-prof (>= 1.10),
+               libghc-unixutils-doc,
+               libghc-extra-prof (>= 1.11),
+               libghc-extra-doc,
+               libghc-help-prof,
+               libghc-help-doc,
+               libghc-network-prof,
+               libghc-network-doc,
+               libghc-regex-posix-prof,
                haskell-regex-posix-doc
 Standards-Version: 3.7.2.0
 
-Package: libghc6-debian-mirror-dev
+Package: libghc-debian-mirror-dev
 Architecture: any
 Section: libdevel
 Depends: ${haskell:Depends}
@@ -30,7 +30,7 @@ Description: A library and application for mirroring Debian compatible repositor
   .
   This package contains the normal library files.
 
-Package: libghc6-debian-mirror-prof
+Package: libghc-debian-mirror-prof
 Architecture: any
 Section: libdevel
 Depends: ${haskell:Depends}
@@ -38,7 +38,7 @@ Description: A library and application for mirroring Debian compatible repositor
   .
   This package contains the normal library files.
 
-Package: libghc6-debian-mirror-doc
+Package: libghc-debian-mirror-doc
 Section: doc
 Architecture: any
 Description: Documentation for a Haskell library
