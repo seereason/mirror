@@ -4,7 +4,7 @@ module Debian.Mirror.Dist where
 import Control.Monad
 import Data.List
 import Data.Maybe
-import Data.Monoid
+import Data.Monoid (Monoid(..))
 import Data.Time
 import Debian.Mirror
 import System.Directory

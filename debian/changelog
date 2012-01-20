@@ -1,3 +1,9 @@
+haskell-debian-mirror (1.1.7) unstable; urgency=low
+
+  * For ghc 7.4, import less of Data.Monoid to avoid ambiguities.
+
+ -- David Fox <dsf@seereason.com>  Fri, 20 Jan 2012 13:16:22 -0800
+
 haskell-debian-mirror (1.1.6) unstable; urgency=low
 
   * Use either haskell-devscripts-cdbs or haskell-devscripts (>= 0.5.12)
