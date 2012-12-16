@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 module Debian.Mirror.Dist where
 
+import Control.Exception as E
 import Control.Monad
 import Data.List
 import Data.Maybe
@@ -65,7 +66,7 @@ makeDist ((Repository repository), arches, dists) destDir =
       makeHardLink oldDir newDir file = 
           (realpath (oldDir </> file) >>= \realOldFp ->
                createLink realOldFp (newDir </> file) >> return Nothing)
-          `catch` 
+          `E.catch` 
           (\e -> if isDoesNotExistError e 
                 then return (Just (oldDir </> file))
                 else ioError e)
@@ -125,7 +126,7 @@ updateTarget (Target targetName basePath dateFormat sources)  =
                           removeLink currDistDir
                           rename inProgress currDistDir
                   else hPutStrLn stderr $ (currDistDir ++ " is not a symbolic-link, assuming already frozen from previous run.")) 
-                `catch`
+                `E.catch`
                      (\e -> if isDoesNotExistError e
                            then hPutStrLn stderr $ (currDistDir ++ " does not exist, assuming it is new dist.")
                            else ioError e)
