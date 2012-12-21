@@ -19,7 +19,7 @@ Build-Depends: debhelper (>= 4.0.0),
                libghc-network-prof,
                libghc-network-doc,
                libghc-regex-posix-prof,
-               haskell-regex-posix-doc
+               libghc-regex-posix-doc
 Standards-Version: 3.7.2.0
 
 Package: libghc-debian-mirror-dev
