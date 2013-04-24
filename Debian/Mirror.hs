@@ -19,8 +19,10 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.List
 import Data.Time
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Debian.Apt.Index
-import Debian.Control.ByteString
+import Debian.Control.Text
 import Network.URI
 import System.Directory
 import System.Exit
@@ -32,8 +34,6 @@ import System.Process
 import System.Unix.FilePath
 import qualified System.Unix.Misc as M
 import Text.Regex.Posix
-
-type ByteString = B.ByteString
 
 {-
 
@@ -235,8 +235,8 @@ makeDistFileList filterP repoDir distName =
                 otherFiles <- mapM (tupleFromFilePath distDir) ("Release" : "Release.gpg" : cf) >>= return . catMaybes
                 return $ (map (\(c,s,fp) -> (c,s,"dists" </> distName </>fp)) $ otherFiles ++ indexFiles, concat (packageFiles ++ sourceFiles))
     where
-      makeTuple :: [B.ByteString] -> (CheckSums, Integer, FilePath)
-      makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), B.unpack fp)
+      makeTuple :: [T.Text] -> (CheckSums, Integer, FilePath)
+      makeTuple [md5sum, size, fp] = (CheckSums { md5sum = Just (T.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (T.unpack size), T.unpack fp)
 
 
       -- this is monoid or monadplus ?
@@ -258,16 +258,16 @@ makePackageFileListIO distDir ((checkSums, size, fp), compression) =
      (controlFromIndex' compression (distDir </> fp)) >>= either (error . show) (return . makePackageFileList)
 
 -- |TODO: improve error message
-makePackageFileList :: Control -> [(CheckSums, Integer, FilePath)]
+makePackageFileList :: Control' T.Text -> [(CheckSums, Integer, FilePath)]
 makePackageFileList (Control paragraphs) =
     map makeParagraphTuple paragraphs
     where
       makeParagraphTuple p =
-          let fp     = maybe (error $ "Paragraph missing Filename field:\n" ++ show p) B.unpack (fieldValue "Filename" p)
-              size   = maybe (error $ "Paragraph missing Size field") (read . B.unpack) (fieldValue "Size" p)
-              md5sum = fmap B.unpack $ md5sumField p
-              sha1   = fmap B.unpack $ fieldValue "SHA1" p
-              sha256 = fmap B.unpack $ fieldValue "SHA256" p
+          let fp     = maybe (error $ "Paragraph missing Filename field:\n" ++ show p) T.unpack (fieldValue "Filename" p)
+              size   = maybe (error $ "Paragraph missing Size field") (read . T.unpack) (fieldValue "Size" p)
+              md5sum = fmap T.unpack $ md5sumField p
+              sha1   = fmap T.unpack $ fieldValue "SHA1" p
+              sha256 = fmap T.unpack $ fieldValue "SHA256" p
           in (CheckSums { md5sum = md5sum, sha1 = sha1, sha256 = sha256 }, size, fp)
 
 -- |look up the md5sum file in a paragraph
@@ -297,10 +297,10 @@ makeSourceFileList (Control paragraphs) =
     where
       makeParagraphTuple p =
           let files = maybe (error $ "Paragraph missing Files field") id (fieldValue "Files" p)
-              directory = maybe (error $ "Paragraph missing Directory field") B.unpack (fieldValue "Directory" p)
-          in map (makeTuple directory . B.words) $ filter (not . B.null) $ B.lines $ files
-      makeTuple :: FilePath -> [B.ByteString] -> (CheckSums, Integer, FilePath)
-      makeTuple directory [md5sum, size, fp] = (CheckSums { md5sum = Just (B.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (B.unpack size), directory </> B.unpack fp)
+              directory = maybe (error $ "Paragraph missing Directory field") T.unpack (fieldValue "Directory" p)
+          in map (makeTuple directory . T.words) $ filter (not . T.null) $ T.lines $ files
+      makeTuple :: FilePath -> [T.Text] -> (CheckSums, Integer, FilePath)
+      makeTuple directory [md5sum, size, fp] = (CheckSums { md5sum = Just (T.unpack md5sum), sha1 = Nothing, sha256 = Nothing }, read (T.unpack size), directory </> T.unpack fp)
 
 
 -- |only public key based, ssh access currently supported
@@ -322,28 +322,28 @@ remoteCommand uri cmd =
              return ec
       _ -> error $ "Invalid argument to remoteCommand (only ssh is supported): " ++ show uri
 
-hPutField :: Handle -> Field' ByteString -> IO ()
+hPutField :: Handle -> Field' T.Text -> IO ()
 hPutField h (Field (a, v)) =
-    B.hPutStr h a >> hPutStr h ":" >> B.hPutStr h v
+    T.hPutStr h a >> hPutStr h ":" >> T.hPutStr h v
 
-hPutParagraph :: Handle -> Paragraph' ByteString -> IO ()
+hPutParagraph :: Handle -> Paragraph' T.Text -> IO ()
 hPutParagraph h (Paragraph fields) =
     mapM_ (\f -> hPutField h f >> hPutStrLn h "") fields
 
-hPutControl :: Handle -> Control' ByteString -> IO ()
+hPutControl :: Handle -> Control' T.Text -> IO ()
 hPutControl h (Control paragraphs) =
     mapM_ (\p -> hPutParagraph h p >> hPutStrLn h "") paragraphs
 
 -- |This may have bad performance issues 
-instance Show (Control' ByteString) where
+instance Show (Control' T.Text) where
     show (Control paragraph) = concat (intersperse "\n" (map show paragraph))
 
-instance Show (Paragraph' ByteString) where
+instance Show (Paragraph' T.Text) where
     show (Paragraph fields) = unlines (map show fields)
 
-instance Show (Field' ByteString) where
-    show (Field (name,value)) = (B.unpack name) ++":"++ (B.unpack value)
-    show (Comment text) = B.unpack text
+instance Show (Field' T.Text) where
+    show (Field (name,value)) = (T.unpack name) ++":"++ (T.unpack value)
+    show (Comment text) = T.unpack text
 
 
 -- |function returns true if character is needs escaping

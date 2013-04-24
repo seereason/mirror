@@ -5,7 +5,7 @@ License:        BSD3
 Author:		Jeremy Shaw
 Homepage:       http://src.seereason.org/debian-mirror
 Build-Type: Simple
-Build-Depends:  base, Unixutils, debian >= 2.19, unix, network, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, pretty, containers, help, filepath
+Build-Depends:  base, Unixutils, debian >= 3.74, unix, network, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, pretty, containers, help, filepath, text
 Synopsis:       A library and application for mirroring Debian compatible repositories
 ghc-options:	-fglasgow-exts -O2 -fasm
 Exposed-modules:
