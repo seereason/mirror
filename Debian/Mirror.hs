@@ -23,6 +23,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Debian.Apt.Index
 import Debian.Control.Text
+import Debian.Pretty (pretty)
 import Network.URI
 import System.Directory
 import System.Exit
@@ -263,7 +264,7 @@ makePackageFileList (Control paragraphs) =
     map makeParagraphTuple paragraphs
     where
       makeParagraphTuple p =
-          let fp     = maybe (error $ "Paragraph missing Filename field:\n" ++ show p) T.unpack (fieldValue "Filename" p)
+          let fp     = maybe (error $ "Paragraph missing Filename field:\n" ++ show (pretty p)) T.unpack (fieldValue "Filename" p)
               size   = maybe (error $ "Paragraph missing Size field") (read . T.unpack) (fieldValue "Size" p)
               md5sum = fmap T.unpack $ md5sumField p
               sha1   = fmap T.unpack $ fieldValue "SHA1" p
@@ -333,6 +334,10 @@ hPutParagraph h (Paragraph fields) =
 hPutControl :: Handle -> Control' T.Text -> IO ()
 hPutControl h (Control paragraphs) =
     mapM_ (\p -> hPutParagraph h p >> hPutStrLn h "") paragraphs
+
+-- |This may have bad performance issues 
+instance Show (Control' T.Text) where
+    show (Control paragraph) = concat (intersperse "\n" (map show paragraph))
 
 instance Show (Paragraph' T.Text) where
     show (Paragraph fields) = unlines (map show fields)
