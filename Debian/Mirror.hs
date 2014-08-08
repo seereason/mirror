@@ -334,10 +334,6 @@ hPutControl :: Handle -> Control' T.Text -> IO ()
 hPutControl h (Control paragraphs) =
     mapM_ (\p -> hPutParagraph h p >> hPutStrLn h "") paragraphs
 
--- |This may have bad performance issues 
-instance Show (Control' T.Text) where
-    show (Control paragraph) = concat (intersperse "\n" (map show paragraph))
-
 instance Show (Paragraph' T.Text) where
     show (Paragraph fields) = unlines (map show fields)
 
