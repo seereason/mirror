@@ -335,18 +335,6 @@ hPutControl :: Handle -> Control' T.Text -> IO ()
 hPutControl h (Control paragraphs) =
     mapM_ (\p -> hPutParagraph h p >> hPutStrLn h "") paragraphs
 
--- |This may have bad performance issues 
-instance Show (Control' T.Text) where
-    show (Control paragraph) = concat (intersperse "\n" (map show paragraph))
-
-instance Show (Paragraph' T.Text) where
-    show (Paragraph fields) = unlines (map show fields)
-
-instance Show (Field' T.Text) where
-    show (Field (name,value)) = (T.unpack name) ++":"++ (T.unpack value)
-    show (Comment text) = T.unpack text
-
-
 -- |function returns true if character is needs escaping
 escapeWithBackslash :: (Char -> Bool) -> String -> String
 escapeWithBackslash p str = concatMap escapeChar str
