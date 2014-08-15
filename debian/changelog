@@ -1,3 +1,10 @@
+haskell-debian-mirror (1.1.8) unstable; urgency=low
+
+  * Remove bogus show instances.
+  * Fix install of debian-mirror executable
+
+ -- David Fox <dsf@seereason.com>  Fri, 08 Aug 2014 06:45:20 -0700
+
 haskell-debian-mirror (1.1.7) unstable; urgency=low
 
   * For ghc 7.4, import less of Data.Monoid to avoid ambiguities.
