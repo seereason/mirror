@@ -5,15 +5,28 @@ License:        BSD3
 Author:		Jeremy Shaw
 Homepage:       http://src.seereason.org/debian-mirror
 Build-Type: Simple
-Build-Depends:  base, Unixutils, debian >= 3.74, unix, network, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, pretty, containers, help, filepath, text
 Synopsis:       A library and application for mirroring Debian compatible repositories
-ghc-options:	-fglasgow-exts -O2 -fasm
-Exposed-modules:
-	Debian.Mirror, Debian.Mirror.Dist, Debian.Mirror.DistMain
+Cabal-Version:  >= 1.8
 
-Executable: debian-mirror
-Main-is: utils/DebianMirror.hs
-ghc-options: -O2 -fasm -threaded
+flag network-uri
+ Description: Get Network.URI from the network-uri package
+ Default: True
 
--- For more complex build options see:
--- http://www.haskell.org/ghc/docs/latest/html/Cabal/
+Library
+  Build-Depends:  base, Unixutils, debian >= 3.74, unix, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, pretty, containers, help, filepath, text
+  if flag(network-uri)
+    Build-Depends: network-uri >= 2.6
+  else
+    Build-Depends: network < 2.6
+  ghc-options:	-fglasgow-exts -O2 -fasm
+  Exposed-modules:
+    Debian.Mirror, Debian.Mirror.Dist, Debian.Mirror.DistMain
+
+Executable debian-mirror
+  Main-is: utils/DebianMirror.hs
+  Build-Depends: base, bytestring, containers, debian, directory, Extra, filepath, old-locale, pretty, process, regex-posix, text, time, unix, Unixutils
+  if flag(network-uri)
+    Build-Depends: network-uri >= 2.6
+  else
+    Build-Depends: network < 2.6
+  ghc-options: -O2 -fasm -threaded
