@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Debian.Mirror.Dist where
 
 import Control.Exception as E
