@@ -8,25 +8,38 @@ Build-Type: Simple
 Synopsis:       A library and application for mirroring Debian compatible repositories
 Cabal-Version:  >= 1.8
 
+flag pretty-new
+ Description: pretty-1.1.2 includes the Text.PrettyPrint.HughesPJClass module from prettyclass
+ Default: True
+
 flag network-uri
  Description: Get Network.URI from the network-uri package
  Default: True
 
 Library
-  Build-Depends:  base, Unixutils, debian >= 3.84, unix, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, pretty, containers, help, filepath, text
-  if flag(network-uri)
-    Build-Depends: network-uri >= 2.6
-  else
-    Build-Depends: network < 2.6
+  Build-Depends:  base, Unixutils, debian >= 3.87, unix, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, containers, help, filepath, text
   ghc-options: -O2 -fasm
   Exposed-modules:
     Debian.Mirror, Debian.Mirror.Dist, Debian.Mirror.DistMain
-
-Executable debian-mirror
-  Main-is: utils/DebianMirror.hs
-  Build-Depends: base, bytestring, containers, debian >= 3.84, directory, Extra, filepath, old-locale, pretty, process, regex-posix, text, time, unix, Unixutils
   if flag(network-uri)
     Build-Depends: network-uri >= 2.6
   else
     Build-Depends: network < 2.6
+  if flag(pretty-new)
+    Build-Depends: pretty >= 1.1.2
+  else
+    Build-Depends: pretty, prettyclass
+
+Executable debian-mirror
+  Main-is: DebianMirror.hs
+  Hs-Source-Dirs: utils
   ghc-options: -O2 -fasm -threaded
+  Build-Depends: base, debian-mirror, Extra, unix
+  if flag(network-uri)
+    Build-Depends: network-uri >= 2.6
+  else
+    Build-Depends: network < 2.6
+  if flag(pretty-new)
+    Build-Depends: pretty >= 1.1.2
+  else
+    Build-Depends: pretty, prettyclass
