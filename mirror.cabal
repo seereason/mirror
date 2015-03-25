@@ -17,7 +17,7 @@ flag network-uri
  Default: True
 
 Library
-  Build-Depends:  base, Unixutils, debian >= 3.87, unix, time >= 1.1, sr-extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, containers, sr-help, filepath, text
+  Build-Depends:  base, Unixutils, debian >= 3.87, unix, time >= 1.1, sr-extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, containers, help, filepath, text
   ghc-options: -O2 -fasm
   Exposed-modules:
     Debian.Mirror, Debian.Mirror.Dist, Debian.Mirror.DistMain
