@@ -17,7 +17,7 @@ flag network-uri
  Default: True
 
 Library
-  Build-Depends:  base, Unixutils, debian >= 3.87, unix, time >= 1.1, Extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, containers, help, filepath, text
+  Build-Depends:  base, Unixutils, debian >= 3.87, unix, time >= 1.1, sr-extra >= 1.11, regex-posix, old-locale, process, directory, bytestring, containers, sr-help, filepath, text
   ghc-options: -O2 -fasm
   Exposed-modules:
     Debian.Mirror, Debian.Mirror.Dist, Debian.Mirror.DistMain
@@ -34,7 +34,7 @@ Executable debian-mirror
   Main-is: DebianMirror.hs
   Hs-Source-Dirs: utils
   ghc-options: -O2 -fasm -threaded
-  Build-Depends: base, debian-mirror, Extra, unix
+  Build-Depends: base, debian-mirror, sr-extra, unix
   if flag(network-uri)
     Build-Depends: network-uri >= 2.6
   else
