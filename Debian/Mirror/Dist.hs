@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
 module Debian.Mirror.Dist where
 
 import Control.Exception as E
@@ -12,7 +12,11 @@ import System.Directory
 import System.FilePath
 import System.IO
 import System.IO.Error
+#if MIN_VERSION_time(1,5,0)
+import System.Locale hiding (defaultTimeLocale)
+#else
 import System.Locale
+#endif
 import System.Posix.Files
 import System.Unix.FilePath (dirName, realpath)
 import System.Unix.Files

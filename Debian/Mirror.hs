@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE CPP, FlexibleInstances #-}
 module Debian.Mirror
     (pushLocalRelease
     , remoteCommand
@@ -28,7 +28,11 @@ import System.Directory
 import System.Exit
 import System.FilePath
 import System.IO
+#if MIN_VERSION_time(1,5,0)
+import System.Locale hiding (defaultTimeLocale)
+#else
 import System.Locale
+#endif
 import System.Posix.Files
 import System.Process
 import System.Unix.FilePath
