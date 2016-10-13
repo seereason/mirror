@@ -1,4 +1,4 @@
-Name:           debian-mirror
+Name:           mirror
 Version:        1.1.8
 License:        BSD3
 -- License-File:	debian/copyright
@@ -34,7 +34,7 @@ Executable debian-mirror
   Main-is: DebianMirror.hs
   Hs-Source-Dirs: utils
   ghc-options: -O2 -fasm -threaded
-  Build-Depends: base, debian-mirror, sr-extra, unix
+  Build-Depends: base, mirror, sr-extra, unix
   if flag(network-uri)
     Build-Depends: network-uri >= 2.6
   else
