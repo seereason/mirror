@@ -208,7 +208,7 @@ findReleases repoDir =
                         
 
 -- TODO: move to unix utils
-isSymLink path = getSymbolicLinkStatus path >>= return . isSymbolicLink
+isSymLink path = getSymbolicLinkStatus path >>= return . System.Posix.Files.isSymbolicLink
 
 data IndexFile =
     IndexFile { uncompressed	:: Maybe (CheckSums, Integer, FilePath)

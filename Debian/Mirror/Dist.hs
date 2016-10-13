@@ -124,7 +124,7 @@ updateTarget (Target targetName basePath dateFormat sources)  =
       makeDist' currentDir nextDir (SourceSpec Active dist@(Repository repoFP,_,_) name) =
           do let currDistDir = (currentDir </> name)
              (do status <- getSymbolicLinkStatus currDistDir
-                 if isSymbolicLink status
+                 if System.Posix.Files.isSymbolicLink status
                   then do let inProgress = (currentDir </> name ++ ".in-progress")
                           makeDist dist inProgress -- perhaps the Repository should be found by running realpath on the symlink ?
                           removeLink currDistDir
