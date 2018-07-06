@@ -6,8 +6,10 @@ import Control.Monad
 import Data.List
 import Data.Maybe
 import Data.Monoid (Monoid(..))
+import Data.Semigroup (Semigroup)
 import Data.Time
 import Debian.Mirror
+import Prelude hiding ((<>))
 import System.Directory
 import System.FilePath
 import System.IO
@@ -26,10 +28,10 @@ import qualified Text.PrettyPrint.HughesPJ as D
 
 newtype Repository 
     = Repository { unRepository :: FilePath }
-      deriving (Eq, Show, Read, Ord, Monoid)
+      deriving (Eq, Show, Read, Ord, Semigroup, Monoid)
     
 newtype Dist = Dist { unDist :: String }
-      deriving (Eq, Show, Read, Ord, Monoid)
+      deriving (Eq, Show, Read, Ord, Semigroup, Monoid)
 
 data Arch 
     = I386

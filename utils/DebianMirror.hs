@@ -6,6 +6,7 @@ import Control.Monad
 import Data.Maybe
 import Data.List
 import Network.URI
+import Prelude hiding ((<>))
 import System.Environment hiding (getEnv)
 import System.Posix.Env (getEnv)
 import System.Exit
