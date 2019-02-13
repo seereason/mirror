@@ -37,7 +37,7 @@ import System.Posix.Files
 import System.Process
 import System.Unix.FilePath
 import qualified System.Unix.Misc as M
-import Text.PrettyPrint.HughesPJClass (prettyShow)
+import Distribution.Pretty (prettyShow)
 import Text.Regex.Posix
 
 {-
@@ -80,7 +80,7 @@ pushLocalRelease updateSymLink filterp sourceDistFP sourcePoolFP destURI =
 -- |mirror a specific Packages \/ Sources file to a remote server
 mirrorContentsTo :: Control -- ^ control file used as source of packages\/versions
                  -> URI -- ^ where to look for files
-                 -> URI -- ^ where to upload the files 
+                 -> URI -- ^ where to upload the files
                  -> IO () -- ^ result
 mirrorContentsTo control source destination = undefined
 
@@ -131,7 +131,7 @@ fudgePath fp files uri =
         plength = length prefixSlash
         invalid = filter (not . (prefixSlash `isPrefixOf`)) files'
     in
-      if null invalid 
+      if null invalid
       then ((fp </> prefix), map (drop plength) files', uri { uriPath = escapeURIString isUnescapedInURI $ (uriPath uri) </> prefix })
       else error ("These files do not have the correct prefix, " ++ prefix ++ "\n" ++ unlines invalid)
 
@@ -194,8 +194,7 @@ findReleases repoDir =
        e <- fileExist distsDir
        if not e
           then error (distsDir ++ " does not exist.") -- return []
-          else do 
-                  contents <- getDirectoryContents distsDir
+          else do contents <- getDirectoryContents distsDir
                   dirs <- filterM (isRealDir distsDir) $ filter (\d -> (d /= ".") && (d /= "..")) contents
                   release <- filterM (\dir -> fileExist (distsDir </> dir </> "Release")) dirs
                   return release
@@ -205,7 +204,6 @@ findReleases repoDir =
              if isDir
                 then liftM not $ isSymLink (base </> fp)
                 else return False
-                        
 
 -- TODO: move to unix utils
 isSymLink path = getSymbolicLinkStatus path >>= return . System.Posix.Files.isSymbolicLink
@@ -230,7 +228,7 @@ makeDistFileList filterP repoDir distName =
        release <- parseControlFromFile releaseFP
        case release of
          (Left e) -> error (show e)
-         (Right control) -> 
+         (Right control) ->
              do let indexFiles = indexesInRelease filterP control
                 packages <- findIndexes distDir "Packages" indexFiles
                 sources  <- findIndexes distDir "Sources"  indexFiles
@@ -284,12 +282,10 @@ md5sumField :: (ControlFunctions a) => Paragraph' a -> Maybe a
 md5sumField p =
     case fieldValue "MD5Sum" p of
       m@(Just _) -> m
-      Nothing -> 
+      Nothing ->
           case fieldValue "Md5Sum" p of
             m@(Just _) -> m
             Nothing -> fieldValue "MD5sum" p
-            
-                  
 
 -- |TODO: check sums \/ filesizes
 makeSourceFileListIO :: FilePath -> ((CheckSums, Integer, FilePath), Compression) -> IO [(CheckSums, Integer, FilePath)]
@@ -345,7 +341,7 @@ escapeWithBackslash p str = concatMap escapeChar str
     where
       escapeChar c
           | p c       = ['\\', c]
-          | otherwise = [c] 
+          | otherwise = [c]
 
 -- what about '!'
 isSpecialInShell c = c `elem` " \"'\\$;[]()&?*"
