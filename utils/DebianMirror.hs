@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE CPP, ForeignFunctionInterface, LambdaCase #-}
 module Main where
 
 import Control.Exception
@@ -45,14 +45,14 @@ exitWithHelp =
        exitFailure
 
 main =
-    do args <- getArgs
-       when (not $ singleton args) exitWithHelp
-       let configName = head args
-           mConfig = find ((==) configName . name) configs
+  getArgs >>= \case
+     [configName] -> do
+       let mConfig = find ((==) configName . name) configs
        when (isNothing mConfig) $ do hPutStrLn stderr ("Could not find config named " ++ configName)
                                      exitWithHelp
        let config = fromJust mConfig
        pushLocalRelease True (const True) (distDir config) (poolDir config) (destURI config)
+     _ -> exitWithHelp
 
 ppConfig :: Config -> Doc
 ppConfig (Config name distDir poolDir destURI) =
@@ -60,11 +60,6 @@ ppConfig (Config name distDir poolDir destURI) =
                                       , sep [text "parent directory of pool directory: ", (nest 4 (text poolDir))]
                                       , sep [text "destination uri:", nest 4 (text (show destURI))]
                                       ])
-
-singleton :: [a] -> Bool
-singleton [_] = True
-singleton _ = False
-
 
 
 {-
